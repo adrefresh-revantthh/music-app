@@ -57,7 +57,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
-      "https://music-vivid-6.vercel.app/",
+      "https://vyloxx.vercel.app/",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,

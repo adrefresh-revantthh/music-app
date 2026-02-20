@@ -298,7 +298,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
-const API = "https://music-vivid.onrender.com/api";
+const API = "https://music-app-f9t7.onrender.com/api";
 
 function AdminPanel() {
   const [title, setTitle] = useState("");

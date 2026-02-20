@@ -272,7 +272,7 @@ function UserPanel() {
   // ✅ Fetch songs
   useEffect(() => {
     axios
-      .get("https://music-vivid.onrender.com/api")
+      .get("https://music-app-f9t7.onrender.com/api")
       .then((res) => setSongs(res.data))
       .catch((err) => console.log("Fetch error:", err));
   }, []);
