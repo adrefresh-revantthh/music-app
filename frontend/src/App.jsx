@@ -25,7 +25,7 @@ function App() {
         
         {/* Navbar */}
         <nav style={styles.navbar}>
-          <div style={styles.logo}>PinkWaves</div>
+          <div style={styles.logo}>Vyloxx</div>
 
           {/* Desktop Links */}
           {!isMobile && (
