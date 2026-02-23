@@ -1,0 +1,4 @@
+bark
+scipy
+fastapi
+uvicorn

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import AdminPanel from "./panels/adminpanel/AdminPanel";
 import UserPanel from "./panels/userpanel/UserPanel";
-// import TopicForm from "./panels/TutorPanel/Ai-Tutor";
 
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -11,9 +10,7 @@ function App() {
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
-      if (window.innerWidth > 768) {
-        setMenuOpen(false);
-      }
+      if (window.innerWidth > 768) setMenuOpen(false);
     };
 
     window.addEventListener("resize", handleResize);
@@ -26,84 +23,64 @@ function App() {
         
         {/* Navbar */}
         <nav style={styles.navbar}>
-          <div style={styles.logo}>Vyloxx</div>
+          <div style={styles.logo}>Vibe-On</div>
 
-          {/* Desktop Links */}
           {!isMobile && (
             <div style={styles.links}>
-              <NavLink
-                to="/user"
-                style={({ isActive }) =>
-                  isActive ? styles.activeLink : styles.link
-                }
-              >
-                Home
-              </NavLink>
-
-              <NavLink
-                to="/admin"
-                style={({ isActive }) =>
-                  isActive ? styles.activeLink : styles.link
-                }
-              >
-                Admin
-              </NavLink>
-               <NavLink
-                to="/ai"
-                style={({ isActive }) =>
-                  isActive ? styles.activeLink : styles.link
-                }
-              >
-                Ai
-              </NavLink>
+              <NavLink to="/user" style={({isActive}) => isActive ? styles.activeLink : styles.link}>Home</NavLink>
+              <NavLink to="/admin" style={({isActive}) => isActive ? styles.activeLink : styles.link}>Admin</NavLink>
+            
             </div>
           )}
 
-          {/* Hamburger */}
           {isMobile && (
-            <div
-              style={styles.hamburger}
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
+            <div style={styles.hamburger} onClick={() => setMenuOpen(!menuOpen)}>
               ☰
             </div>
           )}
         </nav>
 
-        {/* Mobile Dropdown */}
+        {/* Mobile Menu */}
         {isMobile && menuOpen && (
           <div style={styles.mobileMenu}>
-            <NavLink
-              to="/user"
-              style={({ isActive }) =>
-                isActive ? styles.activeLink : styles.link
-              }
-              onClick={() => setMenuOpen(false)}
-            >
-              Home
-            </NavLink>
-
-            <NavLink
-              to="/admin"
-              style={({ isActive }) =>
-                isActive ? styles.activeLink : styles.link
-              }
-              onClick={() => setMenuOpen(false)}
-            >
-              Admin
-            </NavLink>
+            <NavLink to="/user" style={styles.mobileLink} onClick={() => setMenuOpen(false)}>Home</NavLink>
+            <NavLink to="/admin" style={styles.mobileLink} onClick={() => setMenuOpen(false)}>Admin</NavLink>
+           
           </div>
         )}
 
-        {/* Page Content */}
+        {/* Content */}
         <div style={styles.content}>
           <Routes>
             <Route path="/" element={<UserPanel />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/user" element={<UserPanel />} />
-            
           </Routes>
         </div>
+
+        {/* Footer */}
+        <footer style={styles.footer}>
+          <div style={styles.footerContainer}>
+            
+            <div style={styles.footerLeft}>
+              <h3 style={styles.footerLogo}>Powered By: Revanth-Revv</h3>
+              <p style={styles.footerText}>
+                Simple music. Clean experience.
+              </p>
+            </div>
+
+            <div style={styles.footerRight}>
+              <NavLink to="/user" style={styles.footerLink}>Home</NavLink>
+              <NavLink to="/admin" style={styles.footerLink}>Admin</NavLink>
+              <NavLink to="/ai" style={styles.footerLink}>AI</NavLink>
+            </div>
+
+          </div>
+
+          <div style={styles.footerBottom}>
+            © {new Date().getFullYear()} Revanth-Revv
+          </div>
+        </footer>
 
       </div>
     </BrowserRouter>
@@ -112,34 +89,33 @@ function App() {
 
 const styles = {
   appWrapper: {
-    width: "100%",
     minHeight: "100vh",
-    margin: 0,
-    background: "linear-gradient(135deg,#fff0f6,#ffd6e7,#ffc2dc)",
+    display: "flex",
+    flexDirection: "column",
     fontFamily: "Segoe UI, sans-serif",
+    backgroundColor: "#ffffff",
   },
 
+  /* NAVBAR */
   navbar: {
     position: "fixed",
     top: 0,
     left: 0,
     width: "100%",
     height: "70px",
-    background: "rgba(255,255,255,0.85)",
-    backdropFilter: "blur(12px)",
+    backgroundColor: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     padding: "0 5%",
-    boxSizing: "border-box",
-    borderBottom: "1px solid #ffc2dc",
+    borderBottom: "2px solid #4da6ff",
     zIndex: 1000,
   },
 
   logo: {
     fontSize: "20px",
-    fontWeight: "600",
-    color: "#b03060",
+    fontWeight: "700",
+    color: "#ff4fa3",
   },
 
   links: {
@@ -149,22 +125,20 @@ const styles = {
 
   link: {
     textDecoration: "none",
-    color: "#b03060",
+    color: "#4da6ff",
     fontWeight: "500",
-    fontSize: "15px",
   },
 
   activeLink: {
     textDecoration: "none",
     color: "#ff4fa3",
     fontWeight: "600",
-    fontSize: "15px",
   },
 
   hamburger: {
     fontSize: "26px",
     cursor: "pointer",
-    color: "#b03060",
+    color: "#4da6ff",
   },
 
   mobileMenu: {
@@ -172,19 +146,75 @@ const styles = {
     top: "70px",
     right: 0,
     width: "220px",
-    background: "rgba(255,255,255,0.95)",
-    backdropFilter: "blur(12px)",
+    backgroundColor: "#ffffff",
     display: "flex",
     flexDirection: "column",
+    padding: "20px",
     gap: "20px",
-    padding: "25px",
-    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
-    borderRadius: "0 0 0 20px",
-    zIndex: 999,
+    borderLeft: "2px solid #4da6ff",
+  },
+
+  mobileLink: {
+    textDecoration: "none",
+    color: "#4da6ff",
+    fontWeight: "500",
   },
 
   content: {
+    flex: 1,
     paddingTop: "90px",
+  },
+
+  /* FOOTER */
+  footer: {
+    backgroundColor: "#ffffff",
+    borderTop: "2px solid #4da6ff",
+    padding: "40px 5% 20px",
+  },
+
+  footerContainer: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "20px",
+  },
+
+  footerLeft: {
+    minWidth: "200px",
+  },
+
+  footerLogo: {
+    margin: 0,
+  
+     color: "#000000",
+    fontWeight: "700",
+  },
+
+  footerText: {
+    marginTop: "8px",
+    fontSize: "14px",
+     color: " #4da6ff",
+  },
+
+  footerRight: {
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
+  },
+
+  footerLink: {
+    textDecoration: "none",
+       color: "#ff4fa3",
+    fontSize: "14px",
+    fontWeight: "500",
+  },
+
+  footerBottom: {
+    marginTop: "25px",
+    textAlign: "center",
+    fontSize: "13px",
+    color: "#999",
   },
 };
 

@@ -60,6 +60,7 @@
 
 // export default router;
 import express from "express";
+import { generateScript } from "../controllers/songController.js";
 import {
   createSong,
   getSongs,
@@ -97,8 +98,9 @@ router.put(
 
 // DELETE SONG
 router.delete("/:id", deleteSong);
-
+router.post("/script", generateScript);
 // DELETE ALBUM
 router.delete("/album/:albumName", deleteAlbum);
+
 
 export default router;

@@ -626,6 +626,301 @@
 // };
 
 // export default AdminPanel;
+
+// import React, { useEffect, useState } from "react";
+// import axios from "axios";
+
+// const API = "https://music-app-f9t7.onrender.com/api";
+
+// function AdminPanel() {
+//   const [title, setTitle] = useState("");
+//   const [artist, setArtist] = useState("");
+//   const [album, setAlbum] = useState("");
+//   const [newAlbum, setNewAlbum] = useState("");
+//   const [albums, setAlbums] = useState([]);
+//   const [songs, setSongs] = useState([]);
+//   const [audio, setAudio] = useState(null);
+//   const [image, setImage] = useState(null);
+//   const [editingId, setEditingId] = useState(null);
+//   const [loading, setLoading] = useState(false);
+
+//   const fetchData = async () => {
+//     try {
+//       const res = await axios.get(`${API}/`);
+//       setSongs(res.data);
+//       const uniqueAlbums = [...new Set(res.data.map(song => song.album))];
+//       setAlbums(uniqueAlbums);
+//     } catch (error) {
+//       alert("Failed to fetch songs");
+//     }
+//   };
+
+//   useEffect(() => {
+//     fetchData();
+//   }, []);
+
+//   const uploadOrUpdateSong = async () => {
+//     const finalAlbum = album === "new" ? newAlbum : album;
+
+//     if (!title.trim() || !artist.trim() || !finalAlbum.trim()) {
+//       alert("Title, Artist and Album are required");
+//       return;
+//     }
+
+//     if (!editingId && (!audio || !image)) {
+//       alert("Audio and Image required");
+//       return;
+//     }
+
+//     const formData = new FormData();
+//     formData.append("title", title.trim());
+//     formData.append("artist", artist.trim());
+//     formData.append("album", finalAlbum.trim());
+
+//     if (audio) formData.append("audio", audio);
+//     if (image) formData.append("image", image);
+
+//     try {
+//       setLoading(true);
+
+//       if (editingId) {
+//         await axios.put(`${API}/${editingId}`, formData);
+//         alert("Song updated");
+//       } else {
+//         await axios.post(`${API}/create`, formData, {
+//           headers: { "Content-Type": "multipart/form-data" },
+//         });
+//         alert("Song uploaded");
+//       }
+
+//       resetForm();
+//       fetchData();
+//     } catch {
+//       alert("Upload failed");
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   const deleteSong = async (id) => {
+//     if (!window.confirm("Delete song?")) return;
+//     await axios.delete(`${API}/${id}`);
+//     fetchData();
+//   };
+
+//   const deleteAlbum = async () => {
+//     if (!album || album === "new") return;
+//     if (!window.confirm("Delete album?")) return;
+//     await axios.delete(`${API}/albums/${encodeURIComponent(album)}`);
+//     fetchData();
+//     setAlbum("");
+//   };
+
+//   const editSong = (song) => {
+//     setEditingId(song._id);
+//     setTitle(song.title);
+//     setArtist(song.artist);
+//     setAlbum(song.album);
+//   };
+
+//   const resetForm = () => {
+//     setTitle("");
+//     setArtist("");
+//     setAlbum("");
+//     setNewAlbum("");
+//     setAudio(null);
+//     setImage(null);
+//     setEditingId(null);
+//   };
+
+//   return (
+//     <div style={styles.wrapper}>
+//       <div style={styles.card}>
+//         <h1 style={styles.heading}>
+//           {editingId ? "Update Song" : "Admin Upload Panel"}
+//         </h1>
+
+//         <input
+//           style={styles.input}
+//           placeholder="Song Title"
+//           value={title}
+//           onChange={(e) => setTitle(e.target.value)}
+//         />
+
+//         <input
+//           style={styles.input}
+//           placeholder="Artist Name"
+//           value={artist}
+//           onChange={(e) => setArtist(e.target.value)}
+//         />
+
+//         <select
+//           style={styles.input}
+//           value={album}
+//           onChange={(e) => setAlbum(e.target.value)}
+//         >
+//           <option value="">Select Album</option>
+//           {albums.map((alb, i) => (
+//             <option key={i} value={alb}>{alb}</option>
+//           ))}
+//           <option value="new">+ Create New Album</option>
+//         </select>
+
+//         {album === "new" && (
+//           <input
+//             style={styles.input}
+//             placeholder="New Album"
+//             value={newAlbum}
+//             onChange={(e) => setNewAlbum(e.target.value)}
+//           />
+//         )}
+
+//         <label style={styles.fileLabel}>
+//           {audio ? audio.name : "Upload Audio"}
+//           <input
+//             type="file"
+//             accept="audio/*"
+//             onChange={(e) => setAudio(e.target.files[0])}
+//             style={styles.fileInput}
+//           />
+//         </label>
+
+//         <label style={styles.fileLabel}>
+//           {image ? image.name : "Upload Image"}
+//           <input
+//             type="file"
+//             accept="image/*"
+//             onChange={(e) => setImage(e.target.files[0])}
+//             style={styles.fileInput}
+//           />
+//         </label>
+
+//         <button style={styles.button} onClick={uploadOrUpdateSong}>
+//           {editingId ? "Update Song" : "Upload Song"}
+//         </button>
+
+//         <button
+//           style={{ ...styles.button, background: "#9ddcff" }}
+//           onClick={deleteAlbum}
+//         >
+//           Delete Album
+//         </button>
+
+//         <div style={{ marginTop: 20 }}>
+//           {songs.map(song => (
+//             <div key={song._id} style={styles.songItem}>
+//               <span>{song.title} - {song.album}</span>
+//               <div>
+//                 <button
+//                   style={styles.smallBtn}
+//                   onClick={() => editSong(song)}
+//                 >
+//                   Edit
+//                 </button>
+//                 <button
+//                   style={styles.smallDelete}
+//                   onClick={() => deleteSong(song._id)}
+//                 >
+//                   Delete
+//                 </button>
+//               </div>
+//             </div>
+//           ))}
+//         </div>
+
+//       </div>
+//     </div>
+//   );
+// }
+
+// const styles = {
+//   wrapper: {
+//     width: "98vw",
+//     minHeight: "100vh",
+   
+//     display: "flex",
+//     justifyContent: "center",
+//     alignItems: "center",
+//     fontFamily: "Segoe UI",
+//     color: "black",
+//   },
+
+//   card: {
+//     width: "100%",
+//     maxWidth: "500px",
+//     background: "linear-gradient(135deg,#ffe0f3,#d6f0ff)",
+//     padding: 30,
+//     borderRadius: 25,
+//     boxShadow: "0 15px 40px rgba(0,0,0,0.1)",
+//     display: "flex",
+//     flexDirection: "column",
+//     gap: 15,
+//   },
+
+//   heading: { textAlign: "center", color: "black" },
+
+//   input: {
+//     padding: 12,
+//     borderRadius: 12,
+//     border: "1px solid #9ddcff",
+//     fontSize: 14,
+    
+//   },
+
+//   fileLabel: {
+//     background: "#e6f6ff",
+//     padding: 12,
+//     borderRadius: 12,
+//     cursor: "pointer",
+//     textAlign: "center",
+//     border: "1px solid #9ddcff",
+//     color: "black",
+//   },
+
+//   fileInput: { display: "none" },
+
+//   button: {
+//     marginTop: 10,
+//     padding: 14,
+//     borderRadius: 18,
+//     border: "none",
+//     background: "linear-gradient(90deg,#ff9ad1,#7ccfff)",
+//     color: "black",
+//     fontWeight: 600,
+//     cursor: "pointer",
+//   },
+
+//   songItem: {
+//     display: "flex",
+//     justifyContent: "space-between",
+//     padding: 10,
+//     background: "#eaf7ff",
+//     borderRadius: 10,
+//     marginBottom: 10,
+//     color: "black",
+//   },
+
+//   smallBtn: {
+//     padding: "5px 10px",
+//     borderRadius: 8,
+//     border: "none",
+//     background: "#7ccfff",
+//     color: "black",
+//     cursor: "pointer",
+//     marginRight: 8,
+//   },
+
+//   smallDelete: {
+//     padding: "5px 10px",
+//     borderRadius: 8,
+//     border: "none",
+//     background: "#ff9ad1",
+//     color: "black",
+//     cursor: "pointer",
+//   },
+// };
+
+// export default AdminPanel;
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -642,6 +937,9 @@ function AdminPanel() {
   const [image, setImage] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // NEW STATE (only for toggling songs visibility)
+  const [showSongs, setShowSongs] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -805,27 +1103,38 @@ function AdminPanel() {
           Delete Album
         </button>
 
-        <div style={{ marginTop: 20 }}>
-          {songs.map(song => (
-            <div key={song._id} style={styles.songItem}>
-              <span>{song.title} - {song.album}</span>
-              <div>
-                <button
-                  style={styles.smallBtn}
-                  onClick={() => editSong(song)}
-                >
-                  Edit
-                </button>
-                <button
-                  style={styles.smallDelete}
-                  onClick={() => deleteSong(song._id)}
-                >
-                  Delete
-                </button>
+        {/* NEW BUTTON */}
+        <button
+          style={{ ...styles.button, background: "#eaf7ff" }}
+          onClick={() => setShowSongs(!showSongs)}
+        >
+          Your Songs
+        </button>
+
+        {/* SONG LIST (Hidden initially) */}
+        {showSongs && (
+          <div style={styles.songListWrapper}>
+            {songs.map(song => (
+              <div key={song._id} style={styles.songItem}>
+                <span>{song.title} - {song.album}</span>
+                <div>
+                  <button
+                    style={styles.smallBtn}
+                    onClick={() => editSong(song)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    style={styles.smallDelete}
+                    onClick={() => deleteSong(song._id)}
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
       </div>
     </div>
@@ -834,26 +1143,28 @@ function AdminPanel() {
 
 const styles = {
   wrapper: {
-    width: "98vw",
+    width: "100%",
     minHeight: "100vh",
-   
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
     fontFamily: "Segoe UI",
     color: "black",
+    padding: 15,
+    boxSizing: "border-box",
   },
 
   card: {
     width: "100%",
     maxWidth: "500px",
     background: "linear-gradient(135deg,#ffe0f3,#d6f0ff)",
-    padding: 30,
+    padding: 20,
     borderRadius: 25,
     boxShadow: "0 15px 40px rgba(0,0,0,0.1)",
     display: "flex",
     flexDirection: "column",
     gap: 15,
+    boxSizing: "border-box",
   },
 
   heading: { textAlign: "center", color: "black" },
@@ -863,7 +1174,8 @@ const styles = {
     borderRadius: 12,
     border: "1px solid #9ddcff",
     fontSize: 14,
-    
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   fileLabel: {
@@ -874,34 +1186,46 @@ const styles = {
     textAlign: "center",
     border: "1px solid #9ddcff",
     color: "black",
+    width: "100%",
+    boxSizing: "border-box",
   },
 
   fileInput: { display: "none" },
 
+  // ALL BUTTONS borderRadius 2px
   button: {
     marginTop: 10,
     padding: 14,
-    borderRadius: 18,
+    borderRadius: 2,
     border: "none",
     background: "linear-gradient(90deg,#ff9ad1,#7ccfff)",
     color: "black",
     fontWeight: 600,
     cursor: "pointer",
+    width: "100%",
+  },
+
+  songListWrapper: {
+    marginTop: 20,
+    width: "100%",
   },
 
   songItem: {
     display: "flex",
     justifyContent: "space-between",
+    alignItems: "center",
     padding: 10,
     background: "#eaf7ff",
     borderRadius: 10,
     marginBottom: 10,
     color: "black",
+    flexWrap: "wrap",
+    gap: 10,
   },
 
   smallBtn: {
     padding: "5px 10px",
-    borderRadius: 8,
+    borderRadius: 2,
     border: "none",
     background: "#7ccfff",
     color: "black",
@@ -911,7 +1235,7 @@ const styles = {
 
   smallDelete: {
     padding: "5px 10px",
-    borderRadius: 8,
+    borderRadius: 2,
     border: "none",
     background: "#ff9ad1",
     color: "black",

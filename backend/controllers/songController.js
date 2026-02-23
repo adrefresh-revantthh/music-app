@@ -140,6 +140,7 @@
 //     // ignore file not found errors
 //   }
 // };
+import axios from "axios"
 import Song from "../models/Song.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
@@ -272,5 +273,67 @@ export const deleteAlbum = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+
+/* 🔥 AI Tutor - Single file */
+export const generateScript = async (req, res) => {
+  try {
+    const { topic, style = "Elon Musk" } = req.body;
+
+    if (!topic) {
+      return res.status(400).json({ error: "Topic is required" });
+    }
+
+    /* 🔥 Prompt */
+const prompt = `
+You are a friendly Indian Telugu teacher.
+
+Explain the topic: ${topic}
+
+Rules:
+- Use simple Telugu
+- Speak like a teacher explaining to students
+- Use storytelling
+- Give real-life examples
+- Use emotional and conversational tone
+- Do not sound robotic
+- Use short sentences
+- Make students understand clearly
+-no astreiks or emojis should be there 
+-tell em in a narrative way 
+
+End with quick revision points.
+
+Write fully in Telugu language. 
+
+`;
+    /* 🔥 OpenRouter API */
+    const response = await axios.post(
+      "https://openrouter.ai/api/v1/chat/completions",
+      {
+        model: "openai/gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const script = response.data.choices[0].message.content;
+
+    res.json({ script });
+  } catch (error) {
+    console.error("AI error:", error.response?.data || error.message);
+    res.status(500).json({ error: "AI generation failed" });
   }
 };
