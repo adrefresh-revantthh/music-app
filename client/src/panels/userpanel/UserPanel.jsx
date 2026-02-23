@@ -1044,6 +1044,7 @@
 // export default UserPanel;
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { FaPlay, FaPause } from "react-icons/fa";
 
 function UserPanel() {
   const [songs, setSongs] = useState([]);
@@ -1266,9 +1267,9 @@ function UserPanel() {
                     ⏮
                   </button>
 
-                  <button style={styles.playBtn} onClick={togglePlay}>
-                    {isPlaying ? "Pause" : "Play"}
-                  </button>
+                 <button style={styles.playBtn} onClick={togglePlay}>
+  {isPlaying ? <FaPause size={14} /> : <FaPlay size={14} />}
+</button>
 
                   <button style={styles.controlBtn} onClick={nextSong}>
                     ⏭
@@ -1276,15 +1277,7 @@ function UserPanel() {
                 </div>
 
                 <div style={styles.extraControls}>
-                  <button
-                    style={{
-                      ...styles.smallBtn,
-                      background: isShuffle ? "#ff9ad1" : "#9ddcff",
-                    }}
-                    onClick={() => setIsShuffle(!isShuffle)}
-                  >
-                    Shuffle
-                  </button>
+                
 
                   <button
                     style={{
