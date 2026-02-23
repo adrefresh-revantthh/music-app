@@ -113,3 +113,11 @@ select:-webkit-autofill {
     display: block !important;
   }
 }
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}

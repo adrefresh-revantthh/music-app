@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom";
 import AdminPanel from "./panels/adminpanel/AdminPanel";
 import UserPanel from "./panels/userpanel/UserPanel";
+// import TopicForm from "./panels/TutorPanel/Ai-Tutor";
 
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -46,6 +47,14 @@ function App() {
                 }
               >
                 Admin
+              </NavLink>
+               <NavLink
+                to="/ai"
+                style={({ isActive }) =>
+                  isActive ? styles.activeLink : styles.link
+                }
+              >
+                Ai
               </NavLink>
             </div>
           )}
@@ -92,6 +101,7 @@ function App() {
             <Route path="/" element={<UserPanel />} />
             <Route path="/admin" element={<AdminPanel />} />
             <Route path="/user" element={<UserPanel />} />
+            
           </Routes>
         </div>
 
