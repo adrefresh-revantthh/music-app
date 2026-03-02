@@ -2504,7 +2504,7 @@ export default function UserPanel() {
           </div>
           <div style={u.miniPlayerCtrl} onClick={e => e.stopPropagation()}>
             <button style={u.iconBtn} onClick={() => navigate("prev")}><FaBackward size={13} /></button>
-            <button style={u.playBtnSm} onClick={togglePlay}>{isPlaying ? <FaPause size={10} /> :  <FaPlay size={10} />}</button>
+            <button style={u.fpPlayBtn2} onClick={togglePlay}>{isPlaying ? <FaPause size={20} /> : <FaPlay size={20} />}</button>
             <button style={u.iconBtn} onClick={() => navigate("next")}><FaForward size={13} /></button>
           </div>
         </div>
@@ -2695,6 +2695,8 @@ const u = {
   fpIconActive: { color: C.accent },
   fpCtrlBtn: { background: "none", border: "none", cursor: "pointer", color: C.sub, padding: 10, display: "flex" },
   fpPlayBtn: { width: 60, height: 60, borderRadius: "50%", background: C.accent, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f0f0f" },
+    fpPlayBtn2: { width: 50, height:30, borderRadius: "10%", background: C.accent, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f0f0f" },
+
   fpVol: { display: "flex", alignItems: "center", gap: 10, padding: "0 28px 24px", maxWidth: 320, margin: "0 auto", width: "100%" },
   fpQueue: { padding: "0 20px" },
   fpQueueTitle: { fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 12 },
