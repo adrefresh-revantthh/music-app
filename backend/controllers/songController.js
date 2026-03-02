@@ -288,26 +288,25 @@ export const generateScript = async (req, res) => {
 
     /* 🔥 Prompt */
 const prompt = `
-You are a friendly Indian Telugu teacher.
+You are a friendly Indian teacher.
 
 Explain the topic: ${topic}
 
 Rules:
-- Use simple Telugu
-- Speak like a teacher explaining to students
-- Use storytelling
-- Give real-life examples
-- Use emotional and conversational tone
-- Do not sound robotic
-- Use short sentences
-- Make students understand clearly
--no astreiks or emojis should be there 
--tell em in a narrative way 
+
+- Speak like a teacher explaining to students.
+- Use storytelling.
+- Give real-life examples.
+- Use an emotional and conversational tone.
+- Do not sound robotic.
+- Use short and clear sentences.
+- Make students understand the concept easily.
+- Do not use asterisks or emojis.
+- Present it in a narrative style.
 
 End with quick revision points.
 
-Write fully in Telugu language. 
-
+Write it in proper Indian English.
 `;
     /* 🔥 OpenRouter API */
     const response = await axios.post(
