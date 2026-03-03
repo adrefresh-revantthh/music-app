@@ -4676,7 +4676,7 @@ import {
 } from "react-icons/fa";
 
 const API = "https://music-app-f9t7.onrender.com/api";
-const ADMINS = { "admin":"vibe2024", "revanth":"revv@123", "superadmin":"music#999" };
+const ADMINS = { "admin":"vibe2024", "revanth":"revv@123", "superadmin":"music#999","vyshu":"vyshu@123" };
 let _cache = null;
 
 const SkeletonRow = ({ C }) => (
