@@ -1,143 +1,146 @@
+// import axios from "axios"
 // import Song from "../models/Song.js";
-// import fs from "fs/promises";
-// import path from "path";
+// import cloudinary from "../config/cloudinary.js";
+// import fs from "fs";
 
-// const uploadsDir = "uploads";
-
-// /* ================= CREATE SONG ================= */
 // export const createSong = async (req, res) => {
 //   try {
 //     const { title, artist, album } = req.body;
-// console.log( title, artist, album );
-
-//     if (!title || !artist || !album) {
-//       return res.status(400).json({ message: "All fields are required" });
-//     }
-
+//     if (!title || !artist || !album) return res.status(400).json({ message: "All fields are required" });
 //     const audioFile = req.files?.audio?.[0];
 //     const imageFile = req.files?.image?.[0];
-
-//     if (!audioFile || !imageFile) {
-//       return res.status(400).json({ message: "Audio and image required" });
-//     }
-
-//     const newSong = await Song.create({
-//       title,
-//       artist,
-//       album,
-//       audioUrl: audioFile.filename,
-//       imageUrl: imageFile.filename,
-//     });
-
+//     if (!audioFile || !imageFile) return res.status(400).json({ message: "Audio and image required" });
+//     const audioUpload = await cloudinary.uploader.upload(audioFile.path, { resource_type: "video", folder: "songs/audio" });
+//     const imageUpload = await cloudinary.uploader.upload(imageFile.path, { folder: "songs/images" });
+//     fs.unlinkSync(audioFile.path);
+//     fs.unlinkSync(imageFile.path);
+//     const newSong = await Song.create({ title, artist, album, audioUrl: audioUpload.secure_url, imageUrl: imageUpload.secure_url });
 //     res.status(201).json(newSong);
 //   } catch (error) {
+//     console.log("UPLOAD ERROR:", error);
 //     res.status(500).json({ error: error.message });
 //   }
 // };
 
-// /* ================= GET SONGS ================= */
 // export const getSongs = async (req, res) => {
 //   try {
 //     const songs = await Song.find().sort({ createdAt: -1 });
-    
-    
 //     res.status(200).json(songs);
 //   } catch (error) {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
 
-// /* ================= UPDATE SONG ================= */
 // export const updateSong = async (req, res) => {
 //   try {
 //     const { id } = req.params;
-
 //     const song = await Song.findById(id);
-//     if (!song) {
-//       return res.status(404).json({ message: "Song not found" });
-//     }
-
+//     if (!song) return res.status(404).json({ message: "Song not found" });
 //     const { title, artist, album } = req.body;
-
 //     if (title) song.title = title;
 //     if (artist) song.artist = artist;
 //     if (album) song.album = album;
-
 //     if (req.files?.audio?.[0]) {
-//       await safeDelete(song.audioUrl);
-//       song.audioUrl = req.files.audio[0].filename;
+//       const audioUpload = await cloudinary.uploader.upload(req.files.audio[0].path, { resource_type: "video", folder: "songs/audio" });
+//       fs.unlinkSync(req.files.audio[0].path);
+//       song.audioUrl = audioUpload.secure_url;
 //     }
-
 //     if (req.files?.image?.[0]) {
-//       await safeDelete(song.imageUrl);
-//       song.imageUrl = req.files.image[0].filename;
+//       const imageUpload = await cloudinary.uploader.upload(req.files.image[0].path, { folder: "songs/images" });
+//       fs.unlinkSync(req.files.image[0].path);
+//       song.imageUrl = imageUpload.secure_url;
 //     }
-
 //     await song.save();
-
 //     res.status(200).json(song);
 //   } catch (error) {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
 
-// /* ================= DELETE SINGLE SONG ================= */
 // export const deleteSong = async (req, res) => {
 //   try {
-//     const { id } = req.params;
-
-//     const song = await Song.findById(id);
-//     if (!song) {
-//       return res.status(404).json({ message: "Song not found" });
-//     }
-
-//     await safeDelete(song.audioUrl);
-//     await safeDelete(song.imageUrl);
-
-//     await Song.findByIdAndDelete(id);
-
-//     res.status(200).json({ message: "Song deleted successfully" });
+//     await Song.findByIdAndDelete(req.params.id);
+//     res.status(200).json({ message: "Song deleted" });
 //   } catch (error) {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
 
-// /* ================= DELETE ENTIRE ALBUM ================= */
 // export const deleteAlbum = async (req, res) => {
 //   try {
 //     const albumName = decodeURIComponent(req.params.albumName);
-
-//     const songs = await Song.find({ album: albumName });
-
-//     if (!songs.length) {
-//       return res.status(404).json({ message: "Album not found" });
-//     }
-
-//     for (const song of songs) {
-//       await safeDelete(song.audioUrl);
-//       await safeDelete(song.imageUrl);
-//     }
-
 //     await Song.deleteMany({ album: albumName });
-
-//     res.status(200).json({
-//       message: `Album "${albumName}" deleted successfully`,
-//       deletedSongs: songs.length,
-//     });
+//     res.status(200).json({ message: `Album "${albumName}" deleted successfully` });
 //   } catch (error) {
 //     res.status(500).json({ error: error.message });
 //   }
 // };
 
-// /* ================= SAFE FILE DELETE ================= */
-// const safeDelete = async (filename) => {
+// // Route: POST /api/bulk-upload  (use upload.any() in router)
+// // FormData: metadata = JSON string of [{title,artist,album},...], audio_0, image_0, audio_1, image_1, ...
+// export const bulkUploadSongs = async (req, res) => {
 //   try {
-//     if (!filename) return;
+//     let metadata;
+//     try { metadata = JSON.parse(req.body.metadata); }
+//     catch { return res.status(400).json({ error: "Invalid metadata JSON" }); }
+//     if (!Array.isArray(metadata) || metadata.length === 0)
+//       return res.status(400).json({ error: "metadata must be a non-empty array" });
 
-//     const filePath = path.join(uploadsDir, filename);
-//     await fs.unlink(filePath);
-//   } catch (err) {
-//     // ignore file not found errors
+//     const results = [];
+//     for (let i = 0; i < metadata.length; i++) {
+//       const { title, artist, album } = metadata[i] || {};
+//       if (!title || !artist || !album) {
+//         results.push({ index: i, title: title || `Item ${i}`, status: "fail", error: "Missing title/artist/album" });
+//         continue;
+//       }
+//       let audioFile, imageFile;
+//       if (Array.isArray(req.files)) {
+//         audioFile = req.files.find(f => f.fieldname === `audio_${i}`);
+//         imageFile = req.files.find(f => f.fieldname === `image_${i}`);
+//       } else {
+//         audioFile = req.files?.[`audio_${i}`]?.[0];
+//         imageFile = req.files?.[`image_${i}`]?.[0];
+//       }
+//       if (!audioFile || !imageFile) {
+//         results.push({ index: i, title, status: "fail", error: `Missing audio_${i} or image_${i}` });
+//         continue;
+//       }
+//       try {
+//         const [audioUpload, imageUpload] = await Promise.all([
+//           cloudinary.uploader.upload(audioFile.path, { resource_type: "video", folder: "songs/audio" }),
+//           cloudinary.uploader.upload(imageFile.path, { folder: "songs/images" }),
+//         ]);
+//         try { fs.unlinkSync(audioFile.path); } catch {}
+//         try { fs.unlinkSync(imageFile.path); } catch {}
+//         const song = await Song.create({ title, artist, album, audioUrl: audioUpload.secure_url, imageUrl: imageUpload.secure_url });
+//         results.push({ index: i, title, status: "ok", songId: song._id });
+//       } catch (err) {
+//         try { fs.unlinkSync(audioFile?.path); } catch {}
+//         try { fs.unlinkSync(imageFile?.path); } catch {}
+//         results.push({ index: i, title, status: "fail", error: err.message });
+//       }
+//     }
+//     const ok = results.filter(r => r.status === "ok").length;
+//     res.status(200).json({ message: `${ok}/${metadata.length} uploaded`, results });
+//   } catch (error) {
+//     console.error("BULK UPLOAD ERROR:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// };
+
+// export const generateScript = async (req, res) => {
+//   try {
+//     const { topic } = req.body;
+//     if (!topic) return res.status(400).json({ error: "Topic is required" });
+//     const prompt = `You are a friendly Indian teacher.\nExplain the topic: ${topic}\nRules:\n- Speak like a teacher.\n- Use storytelling.\n- Give real-life examples.\n- Emotional and conversational tone.\n- No asterisks or emojis.\n- Narrative style.\nEnd with quick revision points. Write in proper Indian English.`;
+//     const response = await axios.post("https://openrouter.ai/api/v1/chat/completions",
+//       { model: "openai/gpt-4o-mini", messages: [{ role: "user", content: prompt }] },
+//       { headers: { Authorization: `Bearer ${process.env.OPENROUTER_KEY}`, "Content-Type": "application/json" } }
+//     );
+//     res.json({ script: response.data.choices[0].message.content });
+//   } catch (error) {
+//     console.error("AI error:", error.response?.data || error.message);
+//     res.status(500).json({ error: "AI generation failed" });
 //   }
 // };
 import axios from "axios"
@@ -145,53 +148,44 @@ import Song from "../models/Song.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
-/* ================= CREATE SONG ================= */
+/* ================= CREATE SONG (FILE UPLOAD) ================= */
 export const createSong = async (req, res) => {
   try {
     const { title, artist, album } = req.body;
-
-    if (!title || !artist || !album) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
+    if (!title || !artist || !album) return res.status(400).json({ message: "All fields are required" });
     const audioFile = req.files?.audio?.[0];
     const imageFile = req.files?.image?.[0];
-
-    if (!audioFile || !imageFile) {
-      return res.status(400).json({ message: "Audio and image required" });
-    }
-
-    // 🔥 Upload to Cloudinary
-    const audioUpload = await cloudinary.uploader.upload(
-      audioFile.path,
-      {
-        resource_type: "video", // important for audio
-        folder: "songs/audio",
-      }
-    );
-
-    const imageUpload = await cloudinary.uploader.upload(
-      imageFile.path,
-      {
-        folder: "songs/images",
-      }
-    );
-
-    // 🔥 Delete temp local files
+    if (!audioFile || !imageFile) return res.status(400).json({ message: "Audio and image required" });
+    const audioUpload = await cloudinary.uploader.upload(audioFile.path, { resource_type: "video", folder: "songs/audio" });
+    const imageUpload = await cloudinary.uploader.upload(imageFile.path, { folder: "songs/images" });
     fs.unlinkSync(audioFile.path);
     fs.unlinkSync(imageFile.path);
-
-    const newSong = await Song.create({
-      title,
-      artist,
-      album,
-      audioUrl: audioUpload.secure_url,
-      imageUrl: imageUpload.secure_url,
-    });
-
+    const newSong = await Song.create({ title, artist, album, audioUrl: audioUpload.secure_url, imageUrl: imageUpload.secure_url });
     res.status(201).json(newSong);
   } catch (error) {
     console.log("UPLOAD ERROR:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/* ================= CREATE SONG FROM URL (JSON BULK) ================= */
+// Route: POST /api/create-from-url
+// Body: { title, artist, album, audioUrl, imageUrl }
+// Just saves URLs directly to DB — no Cloudinary upload needed
+export const createSongFromUrl = async (req, res) => {
+  try {
+    const { title, artist, album, audioUrl, imageUrl } = req.body;
+    if (!title || !artist || !album) return res.status(400).json({ message: "title, artist, album are required" });
+    if (!audioUrl || !imageUrl) return res.status(400).json({ message: "audioUrl and imageUrl are required" });
+
+    // Optional: validate URLs
+    try { new URL(audioUrl); new URL(imageUrl); }
+    catch { return res.status(400).json({ message: "audioUrl and imageUrl must be valid URLs" }); }
+
+    const newSong = await Song.create({ title, artist, album, audioUrl, imageUrl });
+    res.status(201).json(newSong);
+  } catch (error) {
+    console.log("CREATE FROM URL ERROR:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -211,41 +205,22 @@ export const updateSong = async (req, res) => {
   try {
     const { id } = req.params;
     const song = await Song.findById(id);
-
-    if (!song) {
-      return res.status(404).json({ message: "Song not found" });
-    }
-
+    if (!song) return res.status(404).json({ message: "Song not found" });
     const { title, artist, album } = req.body;
-
     if (title) song.title = title;
     if (artist) song.artist = artist;
     if (album) song.album = album;
-
-    // Update audio
     if (req.files?.audio?.[0]) {
-      const audioUpload = await cloudinary.uploader.upload(
-        req.files.audio[0].path,
-        { resource_type: "video", folder: "songs/audio" }
-      );
-
+      const audioUpload = await cloudinary.uploader.upload(req.files.audio[0].path, { resource_type: "video", folder: "songs/audio" });
       fs.unlinkSync(req.files.audio[0].path);
       song.audioUrl = audioUpload.secure_url;
     }
-
-    // Update image
     if (req.files?.image?.[0]) {
-      const imageUpload = await cloudinary.uploader.upload(
-        req.files.image[0].path,
-        { folder: "songs/images" }
-      );
-
+      const imageUpload = await cloudinary.uploader.upload(req.files.image[0].path, { folder: "songs/images" });
       fs.unlinkSync(req.files.image[0].path);
       song.imageUrl = imageUpload.secure_url;
     }
-
     await song.save();
-
     res.status(200).json(song);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -267,70 +242,23 @@ export const deleteAlbum = async (req, res) => {
   try {
     const albumName = decodeURIComponent(req.params.albumName);
     await Song.deleteMany({ album: albumName });
-
-    res.status(200).json({
-      message: `Album "${albumName}" deleted successfully`,
-    });
+    res.status(200).json({ message: `Album "${albumName}" deleted successfully` });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-
-/* 🔥 AI Tutor - Single file */
+/* ================= AI TUTOR ================= */
 export const generateScript = async (req, res) => {
   try {
-    const { topic, style = "Elon Musk" } = req.body;
-
-    if (!topic) {
-      return res.status(400).json({ error: "Topic is required" });
-    }
-
-    /* 🔥 Prompt */
-const prompt = `
-You are a friendly Indian teacher.
-
-Explain the topic: ${topic}
-
-Rules:
-
-- Speak like a teacher explaining to students.
-- Use storytelling.
-- Give real-life examples.
-- Use an emotional and conversational tone.
-- Do not sound robotic.
-- Use short and clear sentences.
-- Make students understand the concept easily.
-- Do not use asterisks or emojis.
-- Present it in a narrative style.
-
-End with quick revision points.
-
-Write it in proper Indian English.
-`;
-    /* 🔥 OpenRouter API */
-    const response = await axios.post(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        model: "openai/gpt-4o-mini",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
+    const { topic } = req.body;
+    if (!topic) return res.status(400).json({ error: "Topic is required" });
+    const prompt = `You are a friendly Indian teacher.\nExplain the topic: ${topic}\nRules:\n- Speak like a teacher.\n- Use storytelling.\n- Give real-life examples.\n- Emotional and conversational tone.\n- No asterisks or emojis.\n- Narrative style.\nEnd with quick revision points. Write in proper Indian English.`;
+    const response = await axios.post("https://openrouter.ai/api/v1/chat/completions",
+      { model: "openai/gpt-4o-mini", messages: [{ role: "user", content: prompt }] },
+      { headers: { Authorization: `Bearer ${process.env.OPENROUTER_KEY}`, "Content-Type": "application/json" } }
     );
-
-    const script = response.data.choices[0].message.content;
-
-    res.json({ script });
+    res.json({ script: response.data.choices[0].message.content });
   } catch (error) {
     console.error("AI error:", error.response?.data || error.message);
     res.status(500).json({ error: "AI generation failed" });
