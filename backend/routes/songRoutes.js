@@ -152,6 +152,6 @@ router.delete("/:id", deleteSong);
 router.post("/script", generateScript);
 
 // DELETE ALBUM
-router.delete("/album/:albumName", deleteAlbum);
+router.delete("/albums/:albumName", deleteAlbum);
 
 export default router;
