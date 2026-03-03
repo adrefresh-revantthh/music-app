@@ -219,7 +219,7 @@ export default function UserPanel() {
           <div style={{ animation:"slideUp 0.3s ease" }}>
             <div style={{ background:C.surface, borderRadius:16, padding:"28px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:20, marginBottom:8, border:`1px solid ${C.border}` }}>
               <div>
-                <div style={{ fontSize:11, color:C.accent, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Vibe With Revanth</div>
+                <div style={{ fontSize:11, color:C.accent, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Vibe With ANONYMOUS</div>
                 <h1 style={{ fontSize:38, fontWeight:700, letterSpacing:"-0.03em", lineHeight:1.1, marginBottom:8, color:"white" }}>Vibe-On</h1>
                 <p style={{ fontSize:14, color:C.sub, marginBottom:20 }}>Discover. Play. Feel every beat.</p>
                 <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
