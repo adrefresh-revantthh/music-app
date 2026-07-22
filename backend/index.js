@@ -42,6 +42,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import songRoutes from "./routes/songRoutes.js";
+import albumRoutes from "./routes/albumRoutes.js";
 
 dotenv.config();
 
@@ -69,6 +70,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /* 🔥 Routes */
+app.use("/api/albums", albumRoutes);
 app.use("/api", songRoutes);
 
 /* 🔥 MongoDB */

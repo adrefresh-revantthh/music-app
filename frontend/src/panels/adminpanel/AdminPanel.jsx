@@ -4672,7 +4672,8 @@ import axios from "axios";
 import { useTheme } from "../../App";
 import {
   FaUpload, FaTrash, FaEdit, FaSearch, FaTimes, FaList,
-  FaCloudUploadAlt, FaSignOutAlt, FaMusic, FaLock, FaUser, FaEye, FaEyeSlash
+  FaCloudUploadAlt, FaSignOutAlt, FaMusic, FaLock, FaUser, FaEye, FaEyeSlash,
+  FaCompactDisc, FaPlus, FaExchangeAlt, FaImage, FaStar, FaRegStar
 } from "react-icons/fa";
 
 const API = "https://music-app-f9t7.onrender.com/api";
@@ -4739,6 +4740,23 @@ export default function AdminPanel() {
   const [batchResults, setBatchResults] = useState([]);
   const [batchProgress, setBatchProgress] = useState(0);
 
+  // ── ALBUM MANAGEMENT STATE ──
+  const [albumDocs, setAlbumDocs] = useState([]);
+  const [albumsLoading, setAlbumsLoading] = useState(false);
+  const [showCreateAlbum, setShowCreateAlbum] = useState(false);
+  const [newAlbumName, setNewAlbumName] = useState("");
+  const [newAlbumImage, setNewAlbumImage] = useState(null);
+  const [albumSaving, setAlbumSaving] = useState(false);
+  const [editingAlbum, setEditingAlbum] = useState(null); // name of album being edited
+  const [editAlbumName, setEditAlbumName] = useState("");
+  const [editAlbumImage, setEditAlbumImage] = useState(null);
+
+  // ── MOVE SONG STATE ──
+  const [movingSongId, setMovingSongId] = useState(null);
+  const [moveTarget, setMoveTarget] = useState("");
+  const [moveNewAlbum, setMoveNewAlbum] = useState("");
+  const [moveSaving, setMoveSaving] = useState(false);
+
   const handleLogin = (e) => {
     e.preventDefault(); setLoginErr("");
     const pass = ADMINS[loginUser.trim().toLowerCase()];
@@ -4759,7 +4777,16 @@ export default function AdminPanel() {
     finally { setFetchLoading(false); }
   }, []);
 
-  useEffect(() => { if (authed) fetchData(); }, [authed]);
+  const fetchAlbums = useCallback(async () => {
+    setAlbumsLoading(true);
+    try {
+      const res = await axios.get(`${API}/albums`);
+      setAlbumDocs(res.data);
+    } catch { showToast("Failed to fetch albums", "error"); }
+    finally { setAlbumsLoading(false); }
+  }, []);
+
+  useEffect(() => { if (authed) { fetchData(); fetchAlbums(); } }, [authed]);
 
   const resetForm = () => {
     setTitle(""); setArtist(""); setAlbum(""); setNewAlbum(""); setAudio(null); setImage(null); setEditingId(null);
@@ -4790,11 +4817,73 @@ export default function AdminPanel() {
   };
 
   const deleteAlbum = async (name) => {
-    try { await axios.delete(`${API}/albums/${encodeURIComponent(name)}`); showToast(`Album "${name}" deleted`); setConfirm(null); _cache = null; fetchData(true); }
+    try { await axios.delete(`${API}/albums/${encodeURIComponent(name)}`); showToast(`Album "${name}" deleted`); setConfirm(null); _cache = null; fetchData(true); fetchAlbums(); }
     catch { showToast("Album delete failed", "error"); }
   };
 
   const editSong = (song) => { setEditingId(song._id); setTitle(song.title); setArtist(song.artist); setAlbum(song.album); setView("upload"); window.scrollTo(0,0); };
+
+  // ── CREATE A NEW (DYNAMIC) ALBUM, OPTIONALLY WITH A COVER ──
+  const createAlbumSubmit = async () => {
+    if (!newAlbumName.trim()) { showToast("Album name required", "error"); return; }
+    const fd = new FormData();
+    fd.append("name", newAlbumName.trim());
+    if (newAlbumImage) fd.append("image", newAlbumImage);
+    setAlbumSaving(true);
+    try {
+      await axios.post(`${API}/albums`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      showToast("Album created!");
+      setNewAlbumName(""); setNewAlbumImage(null); setShowCreateAlbum(false);
+      fetchAlbums();
+    } catch (err) { showToast(err.response?.data?.message || "Could not create album", "error"); }
+    finally { setAlbumSaving(false); }
+  };
+
+  const startEditAlbum = (a) => { setEditingAlbum(a.name); setEditAlbumName(a.name); setEditAlbumImage(null); };
+
+  // ── RENAME / CHANGE COVER — COVER CASCADES TO EVERY SONG IN THE ALBUM ──
+  const saveAlbumEdit = async () => {
+    if (!editingAlbum) return;
+    const fd = new FormData();
+    if (editAlbumName.trim() && editAlbumName.trim() !== editingAlbum) fd.append("newName", editAlbumName.trim());
+    if (editAlbumImage) fd.append("image", editAlbumImage);
+    setAlbumSaving(true);
+    try {
+      await axios.put(`${API}/albums/${encodeURIComponent(editingAlbum)}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      showToast("Album updated — cover applied to all its songs!");
+      setEditingAlbum(null); setEditAlbumName(""); setEditAlbumImage(null);
+      _cache = null; fetchData(true); fetchAlbums();
+    } catch (err) { showToast(err.response?.data?.message || "Could not update album", "error"); }
+    finally { setAlbumSaving(false); }
+  };
+
+  // ── MOVE A SONG INTO ANOTHER (EXISTING OR NEW) ALBUM ──
+  const startMoveSong = (song) => { setMovingSongId(song._id); setMoveTarget(song.album); setMoveNewAlbum(""); };
+
+  const saveMoveSong = async () => {
+    const target = moveTarget === "__new__" ? moveNewAlbum.trim() : moveTarget;
+    if (!target) { showToast("Pick or name a target album", "error"); return; }
+    const fd = new FormData();
+    fd.append("album", target);
+    setMoveSaving(true);
+    try {
+      await axios.put(`${API}/${movingSongId}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      showToast(`Moved to "${target}"`);
+      setMovingSongId(null); setMoveTarget(""); setMoveNewAlbum("");
+      _cache = null; fetchData(true); fetchAlbums();
+    } catch (err) { showToast(err.response?.data?.message || "Move failed", "error"); }
+    finally { setMoveSaving(false); }
+  };
+
+  // ── FEATURE / UNFEATURE A SONG (SPOTIFY-STYLE HIGHLIGHT) ──
+  const toggleFeatured = async (song) => {
+    try {
+      const fd = new FormData();
+      fd.append("isFeatured", (!song.isFeatured).toString());
+      await axios.put(`${API}/${song._id}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
+      _cache = null; fetchData(true);
+    } catch { showToast("Could not update featured state", "error"); }
+  };
 
   // ── PARSE JSON ──
   const parseJson = (text) => {
@@ -4927,6 +5016,7 @@ export default function AdminPanel() {
             {[
               { id:"upload", icon:<FaUpload size={13}/>, label:editingId?"Edit":"Upload" },
               { id:"library", icon:<FaList size={13}/>, label:"Library" },
+              { id:"albums", icon:<FaCompactDisc size={13}/>, label:"Albums" },
               { id:"batch", icon:<FaCloudUploadAlt size={14}/>, label:"Bulk" },
             ].map(t => (
               <button key={t.id}
@@ -4963,7 +5053,7 @@ export default function AdminPanel() {
                   <label style={{ fontSize:11, fontWeight:600, color:C.sub, textTransform:"uppercase", letterSpacing:0.5 }}>Album *</label>
                   <select style={{ padding:"11px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.card }} value={album} onChange={e => setAlbum(e.target.value)}>
                     <option value="">Select album</option>
-                    {albums.map((al,i) => <option key={i} value={al}>{al}</option>)}
+                    {[...new Set([...albums, ...albumDocs.map(a => a.name)])].map((al,i) => <option key={i} value={al}>{al}</option>)}
                     <option value="__new__">+ New Album</option>
                   </select>
                 </div>
@@ -5046,6 +5136,8 @@ export default function AdminPanel() {
                           </div>
                         </div>
                         <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                          <button style={{ padding:"7px 10px", borderRadius:7, border:`1px solid ${s.isFeatured?C.accentBorder:C.border}`, background:s.isFeatured?C.accentDim:"none", cursor:"pointer", color:s.isFeatured?C.accent:C.sub, display:"flex" }} title={s.isFeatured?"Unfeature":"Feature"} onClick={() => toggleFeatured(s)}>{s.isFeatured?<FaStar size={12}/>:<FaRegStar size={12}/>}</button>
+                          <button style={{ padding:"7px 10px", borderRadius:7, border:`1px solid ${C.border}`, background:"none", cursor:"pointer", color:C.sub, display:"flex" }} title="Move to album" onClick={() => startMoveSong(s)}><FaExchangeAlt size={12}/></button>
                           <button style={{ padding:"7px 10px", borderRadius:7, border:`1px solid ${C.border}`, background:"none", cursor:"pointer", color:C.sub, display:"flex" }} onClick={() => editSong(s)}><FaEdit size={12}/></button>
                           <button style={{ padding:"7px 10px", borderRadius:7, border:"1px solid rgba(248,113,113,0.2)", background:"rgba(248,113,113,0.06)", cursor:"pointer", color:C.error, display:"flex" }}
                             onClick={() => setConfirm({ msg:`Delete "${s.title}"?`, action:() => deleteSong(s._id) })}><FaTrash size={12}/></button>
@@ -5056,6 +5148,100 @@ export default function AdminPanel() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* ── ALBUMS (DYNAMIC ALBUM MANAGEMENT) ── */}
+          {view==="albums" && (
+            <div style={{ animation:"fadeUp 0.25s ease" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20, flexWrap:"wrap", gap:12 }}>
+                <h2 style={{ fontSize:18, fontWeight:700, color:C.text }}>Albums</h2>
+                <button style={{ display:"flex", alignItems:"center", gap:6, padding:"9px 16px", borderRadius:8, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => setShowCreateAlbum(v => !v)}>
+                  <FaPlus size={11}/> New Album
+                </button>
+              </div>
+
+              {showCreateAlbum && (
+                <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:20, marginBottom:20 }}>
+                  <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }} className="ur">
+                    <div style={{ display:"flex", flexDirection:"column", gap:6, flex:1, minWidth:160 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:C.sub, textTransform:"uppercase", letterSpacing:0.5 }}>Album Name *</label>
+                      <input style={{ padding:"11px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.card }} placeholder="e.g. Midnight Vibes" value={newAlbumName} onChange={e => setNewAlbumName(e.target.value)}/>
+                    </div>
+                    <label style={{ display:"flex", alignItems:"center", gap:8, padding:"11px 14px", borderRadius:10, border:`1.5px dashed ${newAlbumImage?C.accent:C.border}`, cursor:"pointer", color:C.sub, fontSize:12, background:newAlbumImage?C.accentDim:C.bg }}>
+                      <FaImage size={13}/> {newAlbumImage ? newAlbumImage.name : "Cover (optional)"}
+                      <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => setNewAlbumImage(e.target.files[0])}/>
+                    </label>
+                    <button style={{ padding:"11px 22px", borderRadius:10, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif", opacity:albumSaving?0.6:1 }} disabled={albumSaving} onClick={createAlbumSubmit}>
+                      {albumSaving?"Saving...":"Create"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {albumsLoading ? (
+                <div>{[...Array(3)].map((_,i) => <SkeletonAlbum key={i} C={C}/>)}</div>
+              ) : albumDocs.length === 0 ? (
+                <p style={{ color:C.muted, fontSize:14, textAlign:"center", padding:32 }}>No albums yet. Create one above, or upload a song.</p>
+              ) : (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))", gap:16 }} className="agrid">
+                  {albumDocs.map(a => (
+                    <div key={a.name} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, overflow:"hidden" }}>
+                      {editingAlbum === a.name ? (
+                        <div style={{ padding:14, display:"flex", flexDirection:"column", gap:10 }}>
+                          <img src={editAlbumImage ? URL.createObjectURL(editAlbumImage) : a.coverImage} alt="" style={{ width:"100%", aspectRatio:"1", objectFit:"cover", borderRadius:8, background:C.card }}/>
+                          <input style={{ padding:"8px 10px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:13, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.card }} value={editAlbumName} onChange={e => setEditAlbumName(e.target.value)}/>
+                          <label style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px", borderRadius:8, border:`1.5px dashed ${C.border}`, cursor:"pointer", color:C.sub, fontSize:11 }}>
+                            <FaImage size={11}/> {editAlbumImage ? editAlbumImage.name : "Change cover"}
+                            <input type="file" accept="image/*" style={{ display:"none" }} onChange={e => setEditAlbumImage(e.target.files[0])}/>
+                          </label>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${C.border}`, background:"none", color:C.sub, cursor:"pointer", fontSize:12, fontFamily:"'Outfit',sans-serif" }} onClick={() => setEditingAlbum(null)}>Cancel</button>
+                            <button style={{ flex:1, padding:"8px", borderRadius:8, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, cursor:"pointer", fontSize:12, fontFamily:"'Outfit',sans-serif", opacity:albumSaving?0.6:1 }} disabled={albumSaving} onClick={saveAlbumEdit}>{albumSaving?"...":"Save"}</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ position:"relative" }}>
+                            {a.coverImage
+                              ? <img src={a.coverImage} alt={a.name} style={{ width:"100%", aspectRatio:"1", objectFit:"cover", display:"block" }} loading="lazy"/>
+                              : <div style={{ width:"100%", aspectRatio:"1", background:C.card, display:"flex", alignItems:"center", justifyContent:"center" }}><FaCompactDisc size={28} color={C.muted}/></div>}
+                          </div>
+                          <div style={{ padding:"10px 12px" }}>
+                            <div style={{ fontSize:13, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{a.name}</div>
+                            <div style={{ fontSize:11, color:C.sub, marginBottom:10 }}>{a.songCount} song{a.songCount!==1?"s":""}</div>
+                            <div style={{ display:"flex", gap:8 }}>
+                              <button style={{ flex:1, padding:"7px", borderRadius:7, border:`1px solid ${C.border}`, background:"none", color:C.sub, cursor:"pointer", fontSize:11, fontFamily:"'Outfit',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:5 }} onClick={() => startEditAlbum(a)}><FaEdit size={10}/> Edit</button>
+                              <button style={{ padding:"7px 10px", borderRadius:7, border:"1px solid rgba(248,113,113,0.2)", background:"rgba(248,113,113,0.06)", color:C.error, cursor:"pointer", display:"flex" }}
+                                onClick={() => setConfirm({ msg:`Delete album "${a.name}"${a.songCount?` and all ${a.songCount} songs`:""}?`, action:() => deleteAlbum(a.name) })}><FaTrash size={11}/></button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── MOVE SONG MODAL ── */}
+          {movingSongId && (
+            <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.7)", zIndex:9998, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={() => setMovingSongId(null)}>
+              <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:16, padding:28, maxWidth:360, width:"100%" }} onClick={e => e.stopPropagation()}>
+                <h3 style={{ fontSize:17, fontWeight:700, marginBottom:16, color:C.text, display:"flex", alignItems:"center", gap:8 }}><FaExchangeAlt size={14}/> Move to Album</h3>
+                <select style={{ width:"100%", padding:"11px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.bg, marginBottom:12 }} value={moveTarget} onChange={e => setMoveTarget(e.target.value)}>
+                  {[...new Set([...albums, ...albumDocs.map(a => a.name)])].map((al,i) => <option key={i} value={al}>{al}</option>)}
+                  <option value="__new__">+ New Album</option>
+                </select>
+                {moveTarget === "__new__" && (
+                  <input style={{ width:"100%", padding:"11px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.bg, marginBottom:12 }} placeholder="New album name" value={moveNewAlbum} onChange={e => setMoveNewAlbum(e.target.value)}/>
+                )}
+                <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+                  <button style={{ padding:"9px 20px", borderRadius:8, border:`1px solid ${C.border}`, background:"none", color:C.sub, cursor:"pointer", fontSize:13, fontFamily:"'Outfit',sans-serif" }} onClick={() => setMovingSongId(null)}>Cancel</button>
+                  <button style={{ padding:"9px 20px", borderRadius:8, border:"none", background:C.accent, color:"#0f0f0f", cursor:"pointer", fontSize:13, fontWeight:700, fontFamily:"'Outfit',sans-serif", opacity:moveSaving?0.6:1 }} disabled={moveSaving} onClick={saveMoveSong}>{moveSaving?"Moving...":"Move"}</button>
+                </div>
+              </div>
             </div>
           )}
 

@@ -145,6 +145,7 @@
 // };
 import axios from "axios"
 import Song from "../models/Song.js";
+import Album from "../models/Album.js";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
@@ -160,7 +161,25 @@ export const createSong = async (req, res) => {
     const imageUpload = await cloudinary.uploader.upload(imageFile.path, { folder: "songs/images" });
     fs.unlinkSync(audioFile.path);
     fs.unlinkSync(imageFile.path);
-    const newSong = await Song.create({ title, artist, album, audioUrl: audioUpload.secure_url, imageUrl: imageUpload.secure_url });
+
+    let finalImageUrl = imageUpload.secure_url;
+
+    // Keep the Album collection (dynamic albums) in sync: if the album
+    // already has a cover set, every song in it should visually match it.
+    // If the album doesn't exist yet, this song's cover becomes the album's
+    // default cover automatically.
+    try {
+      let albumDoc = await Album.findOne({ name: album.trim() });
+      if (albumDoc?.coverImage) {
+        finalImageUrl = albumDoc.coverImage;
+      } else if (!albumDoc) {
+        albumDoc = await Album.create({ name: album.trim(), coverImage: imageUpload.secure_url });
+      }
+    } catch {
+      // non-fatal: album bookkeeping should never block a song upload
+    }
+
+    const newSong = await Song.create({ title, artist, album, audioUrl: audioUpload.secure_url, imageUrl: finalImageUrl });
     res.status(201).json(newSong);
   } catch (error) {
     console.log("UPLOAD ERROR:", error);
@@ -200,26 +219,51 @@ export const getSongs = async (req, res) => {
   }
 };
 
-/* ================= UPDATE SONG ================= */
+/* ================= UPDATE SONG (also used to MOVE a song to another album) ================= */
 export const updateSong = async (req, res) => {
   try {
     const { id } = req.params;
     const song = await Song.findById(id);
     if (!song) return res.status(404).json({ message: "Song not found" });
-    const { title, artist, album } = req.body;
+    const { title, artist, album, isFeatured } = req.body;
     if (title) song.title = title;
     if (artist) song.artist = artist;
-    if (album) song.album = album;
+    if (isFeatured !== undefined) song.isFeatured = isFeatured === true || isFeatured === "true";
+
+    const movingAlbum = album && album.trim() && album.trim() !== song.album;
+    if (album) song.album = album.trim();
+
     if (req.files?.audio?.[0]) {
       const audioUpload = await cloudinary.uploader.upload(req.files.audio[0].path, { resource_type: "video", folder: "songs/audio" });
       fs.unlinkSync(req.files.audio[0].path);
       song.audioUrl = audioUpload.secure_url;
     }
+
+    let explicitImage = false;
     if (req.files?.image?.[0]) {
+      explicitImage = true;
       const imageUpload = await cloudinary.uploader.upload(req.files.image[0].path, { folder: "songs/images" });
       fs.unlinkSync(req.files.image[0].path);
       song.imageUrl = imageUpload.secure_url;
     }
+
+    // Moving a song into a different album: unless the admin explicitly
+    // uploaded a new cover in this same request, adopt the target album's
+    // cover art (creating the Album entry if it's brand new) so the song
+    // matches the rest of its new album.
+    if (movingAlbum && !explicitImage) {
+      try {
+        let albumDoc = await Album.findOne({ name: song.album });
+        if (albumDoc?.coverImage) {
+          song.imageUrl = albumDoc.coverImage;
+        } else if (!albumDoc) {
+          await Album.create({ name: song.album, coverImage: song.imageUrl });
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+
     await song.save();
     res.status(200).json(song);
   } catch (error) {
@@ -242,6 +286,7 @@ export const deleteAlbum = async (req, res) => {
   try {
     const albumName = decodeURIComponent(req.params.albumName);
     await Song.deleteMany({ album: albumName });
+    try { await Album.deleteOne({ name: albumName }); } catch {}
     res.status(200).json({ message: `Album "${albumName}" deleted successfully` });
   } catch (error) {
     res.status(500).json({ error: error.message });
