@@ -262,28 +262,37 @@ export default function UserPanel() {
 
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
-    try {
-      navigator.mediaSession.setActionHandler("play", () => {
-        if (!audioRef.current) return;
-        const p = audioRef.current.play();
-        if (p && typeof p.catch === "function") p.catch(() => {});
-        setIsPlaying(true);
-      });
-      navigator.mediaSession.setActionHandler("pause", () => {
-        audioRef.current?.pause();
-        setIsPlaying(false);
-      });
-      navigator.mediaSession.setActionHandler("previoustrack", () => navigate("prev"));
-      navigator.mediaSession.setActionHandler("nexttrack", () => navigate("next"));
-    } catch {}
+    // set() is forgiving — some browsers throw for handler names they
+    // don't recognize, so each call gets its own try/catch instead of one
+    // big one (a single failure shouldn't wipe out the rest).
+    const set = (action, handler) => { try { navigator.mediaSession.setActionHandler(action, handler); } catch {} };
+
+    set("play", () => {
+      if (!audioRef.current) return;
+      const p = audioRef.current.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+      setIsPlaying(true);
+    });
+    set("pause", () => {
+      audioRef.current?.pause();
+      setIsPlaying(false);
+    });
+    set("previoustrack", () => navigate("prev"));
+    set("nexttrack", () => navigate("next"));
+    // Explicitly mark seek-by-10s as unsupported. Chrome otherwise
+    // synthesizes its own default seekbackward/seekforward buttons on the
+    // lock screen notification (the extra ◀◀ / ▶▶ next to prev/next) —
+    // passing null (not just omitting the call) is what actually hides them.
+    set("seekbackward", null);
+    set("seekforward", null);
+    set("seekto", null);
+    set("stop", null);
+
     return () => {
-      if (!("mediaSession" in navigator)) return;
-      try {
-        navigator.mediaSession.setActionHandler("play", null);
-        navigator.mediaSession.setActionHandler("pause", null);
-        navigator.mediaSession.setActionHandler("previoustrack", null);
-        navigator.mediaSession.setActionHandler("nexttrack", null);
-      } catch {}
+      set("play", null);
+      set("pause", null);
+      set("previoustrack", null);
+      set("nexttrack", null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queue, currentSong, isShuffle, isRepeat]);
@@ -412,7 +421,7 @@ export default function UserPanel() {
             <div style={{ width:48, height:48, borderRadius:14, background:C.accentDim, border:`1px solid ${C.accentBorder}`, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:18 }}>
               <FaMusic size={20} color={C.accent}/>
             </div>
-            <h2 style={{ fontSize:21, fontWeight:700, color:C.text, marginBottom:6 }}>Welcome to Vibe-On</h2>
+            <h2 className="brand-font" style={{ fontSize:26, fontWeight:700, color:C.text, marginBottom:6 }}>Welcome to Sonexa</h2>
             <p style={{ fontSize:13, color:C.sub, marginBottom:20 }}>What should we call you?</p>
             <form onSubmit={e => { e.preventDefault(); submitName(); }}>
               <input autoFocus style={{ width:"100%", padding:"12px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.card, marginBottom:16 }} placeholder="Your name" value={nameInput} onChange={e => setNameInput(e.target.value)}/>
@@ -503,9 +512,9 @@ export default function UserPanel() {
           <div style={{ animation:"slideUp 0.3s ease" }}>
             <div style={{ background:`linear-gradient(135deg,${C.surface},${C.card})`, borderRadius:16, padding:"28px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:20, marginBottom:8, border:`1px solid ${C.border}` }}>
               <div>
-                <div style={{ fontSize:11, color:C.accent, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Vibe With {user?.name ? user.name.toUpperCase() : "ANONYMOUS"}</div>
-                <h1 style={{ fontSize:38, fontWeight:700, letterSpacing:"-0.03em", lineHeight:1.1, marginBottom:8, color:"white" }}>Vibe-On</h1>
-                <p style={{ fontSize:14, color:C.sub, marginBottom:20 }}>Discover. Play. Feel every beat.</p>
+                <div style={{ fontSize:11, color:C.accent, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Hey {user?.name ? user.name.toUpperCase() : "THERE"}</div>
+                <h1 className="brand-font" style={{ fontSize:46, fontWeight:700, letterSpacing:"0", lineHeight:1.1, marginBottom:8, color:"white" }}>Sonexa</h1>
+                <p style={{ fontSize:14, color:C.sub, marginBottom:20, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>Feel The Music</p>
                 <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                   <button style={{ padding:"9px 20px", borderRadius:30, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={playRandom}>🎲 Random</button>
                   <button style={{ padding:"9px 20px", borderRadius:30, border:`1px solid ${C.border}`, background:"none", color:C.sub, fontWeight:500, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => setTab("albums")}>Browse →</button>
