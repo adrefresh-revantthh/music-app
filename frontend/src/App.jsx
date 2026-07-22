@@ -440,7 +440,7 @@ function NavbarFooter({ children }) {
           <NavLink to="/" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>Home</NavLink>
           <NavLink to="/admin" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>Admin</NavLink>
         </div>
-
+{/* grdfg */}
         <button className="ham-btn" style={{
           flexDirection:"column", gap:5, background:"none",
           border:"none", cursor:"pointer", padding:8,
