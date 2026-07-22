@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, memo } from "react";
 import { useTheme } from "../../App";
 import {
   FaPlay, FaPause, FaForward, FaBackward, FaRandom, FaRedo, FaHeart, FaSearch,
@@ -19,6 +19,17 @@ function fetchSongs() {
 // ── localStorage helpers ──
 const loadJSON = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
 const genId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+// true Fisher–Yates shuffle — unbiased, and (unlike re-rolling a random
+// index every time) never clusters the same handful of songs together
+const shuffleArray = (arr) => {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+};
 
 const SLEEP_PRESETS = [10, 15, 30, 45, 60];
 
@@ -51,6 +62,58 @@ const SkelMini = ({ C }) => (
     <div style={{ height:10, width:"60%", borderRadius:4, background:`linear-gradient(90deg,${C.surface} 25%,${C.border} 50%,${C.surface} 75%)`, backgroundSize:"400px 100%", animation:"shimmer 1.4s infinite" }}/>
   </div>
 );
+
+// ── SongRow / AlbumCard live at module scope (not re-declared inside
+// UserPanel's render). Playback progress updates ~60x/sec via the rAF
+// loop below; if these were declared inline they'd get a brand-new
+// component identity on every single tick, forcing React to unmount +
+// remount every row/card each frame — which is what was eating clicks on
+// the heart/+ buttons ("not clicking at all"). memo() also skips re-render
+// when nothing relevant changed. ──
+const SongRow = memo(function SongRow({ song, list, index, showAdd = true, player }) {
+  const { C, currentId, isPlaying, isFav, toggleFav, playSong, openPlayer, onAdd } = player;
+  const active = currentId === song._id;
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 10px", borderRadius:10, cursor:"pointer", background:active?C.accentDim:"transparent", transition:"background 0.15s" }} onClick={() => { playSong(song,list); openPlayer(); }}>
+      <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0, flex:1 }}>
+        <div style={{ width:22, textAlign:"center", fontSize:12, color:C.muted, flexShrink:0, fontFamily:"monospace" }}>{active && isPlaying ? <span style={{ color:C.accent }}>▶</span> : index+1}</div>
+        <img src={song.imageUrl} alt="" style={{ width:42, height:42, borderRadius:8, objectFit:"cover", flexShrink:0 }} loading="lazy"/>
+        <div style={{ minWidth:0 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:active?C.accent:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:200, display:"flex", alignItems:"center", gap:6 }}>
+            {song.title}
+            {song.isFeatured && <FaStar size={9} color={C.accent} title="Featured"/>}
+          </div>
+          <div style={{ fontSize:11, color:C.sub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{song.artist}</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", alignItems:"center", gap:2, flexShrink:0 }}>
+        <span style={{ fontSize:11, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:100, marginRight:6 }} className="sat">{song.album}</span>
+        {showAdd && (
+          <button style={{ background:"none", border:"none", cursor:"pointer", padding:9, display:"flex", borderRadius:"50%" }} title="Add to playlist" onClick={e => { e.stopPropagation(); onAdd(song); }}><FaPlus size={15} color={C.muted}/></button>
+        )}
+        <button style={{ background:"none", border:"none", cursor:"pointer", padding:9, display:"flex", borderRadius:"50%" }} title="Favorite" onClick={e => toggleFav(song,e)}><FaHeart size={18} color={isFav(song._id)?C.accent:C.muted}/></button>
+      </div>
+    </div>
+  );
+});
+
+const AlbumCard = memo(function AlbumCard({ name, songsInAlbum, player }) {
+  const { C, playAlbum, openAlbum } = player;
+  return (
+    <div style={{ cursor:"pointer", borderRadius:12, overflow:"hidden", background:C.card, border:`1px solid ${C.border}` }} onClick={() => openAlbum(name)}>
+      <div style={{ position:"relative" }}>
+        <img src={songsInAlbum[0]?.imageUrl} alt={name} style={{ width:"100%", aspectRatio:"1", objectFit:"cover", display:"block" }} loading="lazy"/>
+        <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", opacity:0, transition:"opacity 0.2s" }}
+          onMouseEnter={e => e.currentTarget.style.opacity=1} onMouseLeave={e => e.currentTarget.style.opacity=0}
+          onClick={e => { e.stopPropagation(); playAlbum(name); }}>
+          <div style={{ width:40, height:40, borderRadius:"50%", background:C.accent, display:"flex", alignItems:"center", justifyContent:"center" }}><FaPlay size={14} color="#0f0f0f"/></div>
+        </div>
+      </div>
+      <div style={{ padding:"10px 12px 4px", fontSize:13, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:C.text }}>{name}</div>
+      <div style={{ padding:"0 12px 10px", fontSize:11, color:C.sub }}>{songsInAlbum.length} tracks</div>
+    </div>
+  );
+});
 
 export default function UserPanel() {
   const { C } = useTheme();
@@ -160,14 +223,75 @@ export default function UserPanel() {
     if (!queue.length || !currentSong) return;
     const idx = queue.findIndex(s => s._id === currentSong._id);
     let next;
-    if (dir==="next") next = isShuffle ? queue[Math.floor(Math.random()*queue.length)] : queue[(idx+1)%queue.length];
-    else next = queue[(idx-1+queue.length)%queue.length];
+    if (dir==="next") {
+      if (isShuffle && queue.length > 1) {
+        // random, but never immediately repeats the song that's playing
+        let randIdx;
+        do { randIdx = Math.floor(Math.random()*queue.length); } while (randIdx === idx);
+        next = queue[randIdx];
+      } else {
+        next = isShuffle ? queue[0] : queue[(idx+1)%queue.length];
+      }
+    } else next = queue[(idx-1+queue.length)%queue.length];
     playSong(next, queue);
   };
 
   const handleEnded = () => { if (isRepeat && audioRef.current) { audioRef.current.currentTime=0; audioRef.current.play().catch(()=>{}); } else navigate("next"); };
   const handleError = () => { if (currentSong) navigate("next"); };
   const seek = (val) => { if (audioRef.current) { audioRef.current.currentTime=val; setCurrentTime(val); } };
+
+  // ── LOCK SCREEN / OS MEDIA CONTROLS (MediaSession API) ──
+  // Shows title/artist/artwork on the lock screen + notification shade,
+  // and wires the hardware/lock-screen play, pause, next & prev buttons
+  // back into the same controls used inside the app.
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !currentSong) return;
+    try {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        album: currentSong.album,
+        artwork: currentSong.imageUrl ? [
+          { src: currentSong.imageUrl, sizes: "96x96",   type: "image/jpeg" },
+          { src: currentSong.imageUrl, sizes: "256x256", type: "image/jpeg" },
+          { src: currentSong.imageUrl, sizes: "512x512", type: "image/jpeg" },
+        ] : [],
+      });
+    } catch {}
+  }, [currentSong]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    try {
+      navigator.mediaSession.setActionHandler("play", () => {
+        if (!audioRef.current) return;
+        const p = audioRef.current.play();
+        if (p && typeof p.catch === "function") p.catch(() => {});
+        setIsPlaying(true);
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        audioRef.current?.pause();
+        setIsPlaying(false);
+      });
+      navigator.mediaSession.setActionHandler("previoustrack", () => navigate("prev"));
+      navigator.mediaSession.setActionHandler("nexttrack", () => navigate("next"));
+    } catch {}
+    return () => {
+      if (!("mediaSession" in navigator)) return;
+      try {
+        navigator.mediaSession.setActionHandler("play", null);
+        navigator.mediaSession.setActionHandler("pause", null);
+        navigator.mediaSession.setActionHandler("previoustrack", null);
+        navigator.mediaSession.setActionHandler("nexttrack", null);
+      } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queue, currentSong, isShuffle, isRepeat]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    try { navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"; } catch {}
+  }, [isPlaying]);
 
   const toggleFav = (song, e) => {
     if (e) e.stopPropagation();
@@ -183,7 +307,21 @@ export default function UserPanel() {
   const progress = duration ? (currentTime/duration)*100 : 0;
   const searchResults = search.trim() ? songs.filter(s => s.title.toLowerCase().includes(search.toLowerCase()) || s.artist.toLowerCase().includes(search.toLowerCase()) || s.album.toLowerCase().includes(search.toLowerCase())) : [];
   const playAlbum = (name) => { const list=albums[name]||[]; if (list.length) playSong(list[0],list); };
-  const playRandom = () => { if (!songs.length) return; const s=songs[Math.floor(Math.random()*songs.length)]; playSong(s,songs); setPlayerOpen(true); };
+  // Draws from the entire catalog (every album/playlist combined, not
+  // just whatever you're currently browsing), true-shuffles the whole
+  // thing with Fisher–Yates, and turns shuffle mode on so every next/prev
+  // afterwards keeps feeling random instead of settling into album order.
+  const playRandom = () => {
+    if (!songs.length) return;
+    const shuffled = shuffleArray(songs);
+    // don't let the "random" pick land on the song already playing
+    if (currentSong && shuffled.length > 1 && shuffled[0]._id === currentSong._id) {
+      [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+    }
+    setIsShuffle(true);
+    playSong(shuffled[0], shuffled);
+    setPlayerOpen(true);
+  };
 
   // ── name prompt ──
   const submitName = () => {
@@ -247,46 +385,22 @@ export default function UserPanel() {
   };
   const sleepFmt = (ms) => { const s = Math.ceil(ms/1000); return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`; };
 
-  const SongRow = ({ song, list, index, showAdd = true }) => {
-    const active = currentSong?._id === song._id;
-    return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 10px", borderRadius:10, cursor:"pointer", background:active?C.accentDim:"transparent", transition:"background 0.15s" }} onClick={() => { playSong(song,list); setPlayerOpen(true); }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12, minWidth:0, flex:1 }}>
-          <div style={{ width:22, textAlign:"center", fontSize:12, color:C.muted, flexShrink:0, fontFamily:"monospace" }}>{active && isPlaying ? <span style={{ color:C.accent }}>▶</span> : index+1}</div>
-          <img src={song.imageUrl} alt="" style={{ width:42, height:42, borderRadius:8, objectFit:"cover", flexShrink:0 }} loading="lazy"/>
-          <div style={{ minWidth:0 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:active?C.accent:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:200, display:"flex", alignItems:"center", gap:6 }}>
-              {song.title}
-              {song.isFeatured && <FaStar size={9} color={C.accent} title="Featured"/>}
-            </div>
-            <div style={{ fontSize:11, color:C.sub, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{song.artist}</div>
-          </div>
-        </div>
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
-          <span style={{ fontSize:11, color:C.muted, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", maxWidth:100 }} className="sat">{song.album}</span>
-          {showAdd && (
-            <button style={{ background:"none", border:"none", cursor:"pointer", padding:4, display:"flex" }} title="Add to playlist" onClick={e => { e.stopPropagation(); setAddMenuSong(song); }}><FaPlus size={12} color={C.muted}/></button>
-          )}
-          <button style={{ background:"none", border:"none", cursor:"pointer", padding:4, display:"flex" }} onClick={e => toggleFav(song,e)}><FaHeart size={13} color={isFav(song._id)?C.accent:C.muted}/></button>
-        </div>
-      </div>
-    );
+  // Stable-shaped bag of everything SongRow/AlbumCard need from this
+  // render, so call sites stay simple. The individual functions inside
+  // are recreated each render (cheap), but the *components* themselves
+  // no longer are — that's what fixes the click issue.
+  const player = {
+    C,
+    currentId: currentSong?._id,
+    isPlaying,
+    isFav,
+    toggleFav,
+    playSong,
+    openPlayer: () => setPlayerOpen(true),
+    onAdd: (song) => setAddMenuSong(song),
+    playAlbum,
+    openAlbum: (name) => { setSelectedAlbum(name); setTab("albums"); },
   };
-
-  const AlbumCard = ({ name }) => (
-    <div style={{ cursor:"pointer", borderRadius:12, overflow:"hidden", background:C.card, border:`1px solid ${C.border}` }} onClick={() => { setSelectedAlbum(name); setTab("albums"); }}>
-      <div style={{ position:"relative" }}>
-        <img src={albums[name][0]?.imageUrl} alt={name} style={{ width:"100%", aspectRatio:"1", objectFit:"cover", display:"block" }} loading="lazy"/>
-        <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", opacity:0, transition:"opacity 0.2s" }}
-          onMouseEnter={e => e.currentTarget.style.opacity=1} onMouseLeave={e => e.currentTarget.style.opacity=0}
-          onClick={e => { e.stopPropagation(); playAlbum(name); }}>
-          <div style={{ width:40, height:40, borderRadius:"50%", background:C.accent, display:"flex", alignItems:"center", justifyContent:"center" }}><FaPlay size={14} color="#0f0f0f"/></div>
-        </div>
-      </div>
-      <div style={{ padding:"10px 12px 4px", fontSize:13, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:C.text }}>{name}</div>
-      <div style={{ padding:"0 12px 10px", fontSize:11, color:C.sub }}>{albums[name].length} tracks</div>
-    </div>
-  );
 
   return (
     <div style={{ fontFamily:"'Outfit',sans-serif", background:C.bg, minHeight:"100vh", color:C.text, paddingBottom:130 }}>
@@ -438,7 +552,7 @@ export default function UserPanel() {
               <section style={{ marginTop:36 }}>
                 <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:"white" }}><FaHeart size={12} style={{ color:C.accent }}/> Favorites</h2>
                 <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-                  {favorites.slice(0,5).map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i}/>)}
+                  {favorites.slice(0,5).map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i} player={player}/>)}
                   {favorites.length > 5 && <div style={{ fontSize:13, color:C.accent, cursor:"pointer", padding:"10px 0", textAlign:"center" }} onClick={() => setTab("favs")}>See all {favorites.length} →</div>}
                 </div>
               </section>
@@ -462,7 +576,7 @@ export default function UserPanel() {
             <section style={{ marginTop:36 }}>
               <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, color:"white" }}>Albums</h2>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:16 }} className="agrid">
-                {albumNames.map(n => <AlbumCard key={n} name={n}/>)}
+                {albumNames.map(n => <AlbumCard key={n} name={n} songsInAlbum={albums[n]} player={player}/>)}
               </div>
             </section>
           </div>
@@ -483,13 +597,13 @@ export default function UserPanel() {
                     <button style={{ padding:"9px 20px", borderRadius:30, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => { playAlbum(selectedAlbum); setPlayerOpen(true); }}>▶ Play All</button>
                   </div>
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{albums[selectedAlbum].map((s,i) => <SongRow key={s._id} song={s} list={albums[selectedAlbum]} index={i}/>)}</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{albums[selectedAlbum].map((s,i) => <SongRow key={s._id} song={s} list={albums[selectedAlbum]} index={i} player={player}/>)}</div>
               </>
             ) : (
               <>
                 <h2 style={{ fontSize:22, fontWeight:700, marginBottom:20, color:C.text }}>Albums</h2>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:16 }} className="agrid">
-                  {albumNames.map(n => <AlbumCard key={n} name={n}/>)}
+                  {albumNames.map(n => <AlbumCard key={n} name={n} songsInAlbum={albums[n]} player={player}/>)}
                 </div>
               </>
             )}
@@ -506,12 +620,12 @@ export default function UserPanel() {
             </div>
             {search ? (
               <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
-                {searchResults.length===0 ? <p style={{ color:C.muted, fontSize:14, textAlign:"center", padding:48 }}>No results for "{search}"</p> : searchResults.map((s,i) => <SongRow key={s._id} song={s} list={searchResults} index={i}/>)}
+                {searchResults.length===0 ? <p style={{ color:C.muted, fontSize:14, textAlign:"center", padding:48 }}>No results for "{search}"</p> : searchResults.map((s,i) => <SongRow key={s._id} song={s} list={searchResults} index={i} player={player}/>)}
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
                 <div style={{ fontSize:12, color:C.muted, fontWeight:600, letterSpacing:1, textTransform:"uppercase", padding:"0 4px 12px" }}>All Songs ({songs.length})</div>
-                {songs.map((s,i) => <SongRow key={s._id} song={s} list={songs} index={i}/>)}
+                {songs.map((s,i) => <SongRow key={s._id} song={s} list={songs} index={i} player={player}/>)}
               </div>
             )}
           </div>
@@ -537,7 +651,7 @@ export default function UserPanel() {
                 </div>
                 {playlistSongs(selectedPlaylist).length === 0
                   ? <p style={{ color:C.muted, fontSize:14, textAlign:"center", padding:48 }}>No songs yet — tap the + on any song to add it here.</p>
-                  : <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{playlistSongs(selectedPlaylist).map((s,i) => <SongRow key={s._id} song={s} list={playlistSongs(selectedPlaylist)} index={i}/>)}</div>}
+                  : <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{playlistSongs(selectedPlaylist).map((s,i) => <SongRow key={s._id} song={s} list={playlistSongs(selectedPlaylist)} index={i} player={player}/>)}</div>}
               </>
             ) : (
               <>
@@ -579,7 +693,7 @@ export default function UserPanel() {
             {favorites.length===0 ? <p style={{ color:C.muted, fontSize:14, textAlign:"center", padding:48 }}>No favorites yet. Tap ♥ on any song.</p> : (
               <>
                 <button style={{ marginBottom:16, padding:"9px 20px", borderRadius:30, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => { playSong(favorites[0], favorites); setPlayerOpen(true); }}>▶ Play All</button>
-                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{favorites.map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i}/>)}</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{favorites.map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i} player={player}/>)}</div>
               </>
             )}
           </div>
@@ -593,6 +707,10 @@ export default function UserPanel() {
           <div style={{ flex:1, minWidth:0 }}>
             <div style={{ fontSize:13, fontWeight:600, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis", color:C.text }}>{currentSong.title}</div>
             <div style={{ fontSize:11, color:C.sub }}>{currentSong.artist}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:0 }} onClick={e => e.stopPropagation()}>
+            <button style={{ background:"none", border:"none", cursor:"pointer", padding:8, display:"flex", borderRadius:"50%" }} title="Add to playlist" onClick={() => setAddMenuSong(currentSong)}><FaPlus size={13} color={C.muted}/></button>
+            <button style={{ background:"none", border:"none", cursor:"pointer", padding:8, display:"flex", borderRadius:"50%" }} title="Favorite" onClick={e => toggleFav(currentSong,e)}><FaHeart size={15} color={isFav(currentSong._id)?C.accent:C.muted}/></button>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:6 }} onClick={e => e.stopPropagation()}>
             <button style={{ background:"none", border:"none", cursor:"pointer", color:C.sub, padding:6, display:"flex" }} onClick={() => navigate("prev")}><FaBackward size={13}/></button>
@@ -608,7 +726,10 @@ export default function UserPanel() {
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 20px" }}>
             <button style={{ background:"gray", border:`1px solid ${C.border}`, color:"black", width:76, height:36, borderRadius:"4px", cursor:"pointer", fontSize:15, display:"flex", alignItems:"center", justifyContent:"center" }} onClick={() => setPlayerOpen(false)}>Back</button>
             <span style={{ fontSize:12, fontWeight:600, color:C.muted, letterSpacing:1, textTransform:"uppercase" }}>Now Playing</span>
-            <button style={{ background:"none", border:"none", cursor:"pointer", padding:8, display:"flex" }} onClick={() => toggleFav(currentSong)}><FaHeart size={16} color={isFav(currentSong._id)?C.accent:C.muted}/></button>
+            <div style={{ display:"flex", alignItems:"center" }}>
+              <button style={{ background:"none", border:"none", cursor:"pointer", padding:8, display:"flex" }} title="Add to playlist" onClick={() => setAddMenuSong(currentSong)}><FaPlus size={14} color={C.muted}/></button>
+              <button style={{ background:"none", border:"none", cursor:"pointer", padding:8, display:"flex" }} title="Favorite" onClick={() => toggleFav(currentSong)}><FaHeart size={16} color={isFav(currentSong._id)?C.accent:C.muted}/></button>
+            </div>
           </div>
 
           <div style={{ display:"flex", justifyContent:"center", padding:"10px 40px 24px" }}>
