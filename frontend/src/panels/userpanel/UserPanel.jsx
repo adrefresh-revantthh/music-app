@@ -3,7 +3,7 @@ import { useTheme } from "../../App";
 import {
   FaPlay, FaPause, FaForward, FaBackward, FaRandom, FaRedo, FaHeart, FaSearch,
   FaVolumeUp, FaVolumeMute, FaTimes, FaHome, FaMusic, FaFire, FaListUl, FaPlus,
-  FaMoon, FaTrash, FaCheck, FaStar,
+  FaMoon, FaTrash, FaCheck, FaStar, FaUser, FaPen, FaDownload, FaMobileAlt,
 } from "react-icons/fa";
 
 const API = "https://music-app-f9t7.onrender.com/api";
@@ -139,6 +139,13 @@ export default function UserPanel() {
   // ── visitor identity (name-only prompt -> localStorage id) ──
   const [user, setUser] = useState(() => loadJSON("vo_user", null));
   const [nameInput, setNameInput] = useState("");
+  const [nameEditing, setNameEditing] = useState(false);
+  const [nameEditValue, setNameEditValue] = useState("");
+
+  // ── "download the app" (PWA install) prompt ──
+  const [installEvent, setInstallEvent] = useState(null);   // captured beforeinstallprompt event
+  const [showInstallStep, setShowInstallStep] = useState(false); // shown right after name entry
+  const [installedFlag, setInstalledFlag] = useState(false);
 
   // ── playlists (fully local, scoped to this browser's generated id) ──
   const [playlists, setPlaylists] = useState(() => loadJSON("vo_playlists", []));
@@ -167,6 +174,38 @@ export default function UserPanel() {
   }, []);
 
   useEffect(() => { localStorage.setItem("vo_playlists", JSON.stringify(playlists)); }, [playlists]);
+
+  // ── PWA install prompt ──
+  // We capture Chrome's beforeinstallprompt as early as possible (mount)
+  // and call preventDefault() on it, which suppresses the browser's own
+  // automatic install banner so we can show it ourselves at a moment we
+  // choose (right after the name is entered) instead of whenever Chrome
+  // feels like it.
+  useEffect(() => {
+    const onBeforeInstall = (e) => { e.preventDefault(); setInstallEvent(e); };
+    const onInstalled = () => { setInstallEvent(null); setInstalledFlag(true); setShowInstallStep(false); };
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const isStandalone = () => {
+    try { return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator?.standalone === true; }
+    catch { return false; }
+  };
+
+  const installApp = async () => {
+    if (!installEvent) { setShowInstallStep(false); return; }
+    try {
+      installEvent.prompt();
+      await installEvent.userChoice;
+    } catch {}
+    setInstallEvent(null);
+    setShowInstallStep(false);
+  };
 
   const albums = songs.reduce((acc,s) => { if (!acc[s.album]) acc[s.album] = []; acc[s.album].push(s); return acc; }, {});
   const albumNames = Object.keys(albums);
@@ -338,6 +377,18 @@ export default function UserPanel() {
     const u = { name: nameInput.trim(), id: genId() };
     localStorage.setItem("vo_user", JSON.stringify(u));
     setUser(u);
+    if (!isStandalone()) setShowInstallStep(true);
+  };
+
+  // ── edit name (from Profile) ──
+  const startEditName = () => { setNameEditValue(user?.name || ""); setNameEditing(true); };
+  const saveEditName = () => {
+    const trimmed = nameEditValue.trim();
+    if (!trimmed) { setNameEditing(false); return; }
+    const u = { ...user, name: trimmed };
+    localStorage.setItem("vo_user", JSON.stringify(u));
+    setUser(u);
+    setNameEditing(false);
   };
 
   // ── playlists ──
@@ -421,12 +472,39 @@ export default function UserPanel() {
             <div style={{ width:48, height:48, borderRadius:14, background:C.accentDim, border:`1px solid ${C.accentBorder}`, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:18 }}>
               <FaMusic size={20} color={C.accent}/>
             </div>
-            <h2 className="brand-font" style={{ fontSize:26, fontWeight:700, color:C.text, marginBottom:6 }}>Welcome to Sonexa</h2>
+            <h2 className="brand-font" style={{ fontSize:26, fontWeight:700, color:C.text, marginBottom:6 }}>Welcome to Loopz</h2>
             <p style={{ fontSize:13, color:C.sub, marginBottom:20 }}>What should we call you?</p>
             <form onSubmit={e => { e.preventDefault(); submitName(); }}>
               <input autoFocus style={{ width:"100%", padding:"12px 14px", borderRadius:10, border:`1px solid ${C.border}`, fontSize:14, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.card, marginBottom:16 }} placeholder="Your name" value={nameInput} onChange={e => setNameInput(e.target.value)}/>
               <button type="submit" style={{ width:"100%", padding:13, borderRadius:12, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }}>Let's go →</button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── DOWNLOAD APP (PWA install) — shown right after the name is entered ── */}
+      {user && showInstallStep && (
+        <div style={{ position:"fixed", inset:0, zIndex:1900, background:"rgba(0,0,0,0.75)", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+          <div style={{ width:"100%", maxWidth:360, background:C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:"32px 28px", animation:"fadeUp 0.3s ease", textAlign:"center" }}>
+            <div style={{ width:56, height:56, borderRadius:16, background:C.accentDim, border:`1px solid ${C.accentBorder}`, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:18, marginLeft:"auto", marginRight:"auto" }}>
+              <FaMobileAlt size={24} color={C.accent}/>
+            </div>
+            <h2 className="brand-font" style={{ fontSize:24, fontWeight:700, color:C.text, marginBottom:8 }}>Get the Loopz app</h2>
+            {installEvent ? (
+              <p style={{ fontSize:13, color:C.sub, marginBottom:24, lineHeight:1.6 }}>Install Loopz on this device — no app store needed. Works offline-ready, opens instantly, feels native.</p>
+            ) : (
+              <p style={{ fontSize:13, color:C.sub, marginBottom:24, lineHeight:1.6 }}>Your browser doesn't support one-tap install here. On iPhone: tap the Share icon, then "Add to Home Screen."</p>
+            )}
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {installEvent && (
+                <button style={{ width:"100%", padding:13, borderRadius:12, border:"none", background:C.accent, color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer", fontFamily:"'Outfit',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }} onClick={installApp}>
+                  <FaDownload size={13}/> Download App
+                </button>
+              )}
+              <button style={{ width:"100%", padding:13, borderRadius:12, border:`1px solid ${C.border}`, background:"none", color:C.sub, fontWeight:600, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => setShowInstallStep(false)}>
+                {installEvent ? "Not now" : "Continue"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -466,6 +544,7 @@ export default function UserPanel() {
           { id:"search",    icon:<FaSearch size={16}/>,  label:"Search" },
           { id:"playlists", icon:<FaListUl size={16}/>,  label:"Playlists" },
           { id:"favs",      icon:<FaHeart size={16}/>,   label:"Favorites" },
+          { id:"profile",   icon:<FaUser size={16}/>,    label:"Profile" },
         ].map(t => (
           <button key={t.id} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, background:"none", border:"none", cursor:"pointer", color:tab===t.id?C.accent:C.muted, fontSize:11 }}
             onClick={() => { setTab(t.id); setSelectedAlbum(null); setSelectedPlaylist(null); }}>
@@ -513,8 +592,8 @@ export default function UserPanel() {
             <div style={{ background:`linear-gradient(135deg,${C.surface},${C.card})`, borderRadius:16, padding:"28px 24px", display:"flex", justifyContent:"space-between", alignItems:"center", gap:20, marginBottom:8, border:`1px solid ${C.border}` }}>
               <div>
                 <div style={{ fontSize:11, color:C.accent, fontWeight:600, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Hey {user?.name ? user.name.toUpperCase() : "THERE"}</div>
-                <h1 className="brand-font" style={{ fontSize:46, fontWeight:700, letterSpacing:"0", lineHeight:1.1, marginBottom:8, color:"white" }}>Sonexa</h1>
-                <p style={{ fontSize:14, color:C.sub, marginBottom:20, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>Feel The Music</p>
+                <h1 className="brand-font" style={{ fontSize:46, fontWeight:700, letterSpacing:"0", lineHeight:1.1, marginBottom:8, color:C.text }}>Loopz</h1>
+                <p style={{ fontSize:14, color:C.sub, marginBottom:20, textTransform:"uppercase", letterSpacing:1.5, fontWeight:600 }}>Live Louder</p>
                 <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                   <button style={{ padding:"9px 20px", borderRadius:30, border:"none", background:C.accent, color:"#0f0f0f", fontWeight:700, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={playRandom}>🎲 Random</button>
                   <button style={{ padding:"9px 20px", borderRadius:30, border:`1px solid ${C.border}`, background:"none", color:C.sub, fontWeight:500, fontSize:13, cursor:"pointer", fontFamily:"'Outfit',sans-serif" }} onClick={() => setTab("albums")}>Browse →</button>
@@ -529,7 +608,7 @@ export default function UserPanel() {
 
             {recent.length > 0 && (
               <section style={{ marginTop:36 }}>
-                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:"white" }}><FaFire size={14} style={{ color:C.accent }}/> Recently Played</h2>
+                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:C.text }}><FaFire size={14} style={{ color:C.accent }}/> Recently Played</h2>
                 <div style={{ display:"flex", gap:14, overflowX:"auto", paddingBottom:4 }}>
                   {recent.map(s => (
                     <div key={s._id} style={{ flexShrink:0, width:120, cursor:"pointer" }} onClick={() => { playSong(s,songs); setPlayerOpen(true); }}>
@@ -544,7 +623,7 @@ export default function UserPanel() {
 
             {featured.length > 0 && (
               <section style={{ marginTop:36 }}>
-                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:"white" }}><FaStar size={13} style={{ color:C.accent }}/> Featured</h2>
+                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:C.text }}><FaStar size={13} style={{ color:C.accent }}/> Featured</h2>
                 <div style={{ display:"flex", gap:14, overflowX:"auto", paddingBottom:4 }}>
                   {featured.map(s => (
                     <div key={s._id} style={{ flexShrink:0, width:120, cursor:"pointer" }} onClick={() => { playSong(s,featured); setPlayerOpen(true); }}>
@@ -559,7 +638,7 @@ export default function UserPanel() {
 
             {favorites.length > 0 && (
               <section style={{ marginTop:36 }}>
-                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:"white" }}><FaHeart size={12} style={{ color:C.accent }}/> Favorites</h2>
+                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:C.text }}><FaHeart size={12} style={{ color:C.accent }}/> Favorites</h2>
                 <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
                   {favorites.slice(0,5).map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i} player={player}/>)}
                   {favorites.length > 5 && <div style={{ fontSize:13, color:C.accent, cursor:"pointer", padding:"10px 0", textAlign:"center" }} onClick={() => setTab("favs")}>See all {favorites.length} →</div>}
@@ -569,7 +648,7 @@ export default function UserPanel() {
 
             {playlists.length > 0 && (
               <section style={{ marginTop:36 }}>
-                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:"white" }}><FaListUl size={12} style={{ color:C.accent }}/> Your Playlists</h2>
+                <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, display:"flex", alignItems:"center", gap:8, color:C.text }}><FaListUl size={12} style={{ color:C.accent }}/> Your Playlists</h2>
                 <div style={{ display:"flex", gap:14, overflowX:"auto", paddingBottom:4 }}>
                   {playlists.map(pl => (
                     <div key={pl.id} style={{ flexShrink:0, width:140, cursor:"pointer", background:C.card, border:`1px solid ${C.border}`, borderRadius:12, padding:14 }} onClick={() => { setSelectedPlaylist(pl); setTab("playlists"); }}>
@@ -583,7 +662,7 @@ export default function UserPanel() {
             )}
 
             <section style={{ marginTop:36 }}>
-              <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, color:"white" }}>Albums</h2>
+              <h2 style={{ fontSize:15, fontWeight:700, marginBottom:16, color:C.text }}>Albums</h2>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:16 }} className="agrid">
                 {albumNames.map(n => <AlbumCard key={n} name={n} songsInAlbum={albums[n]} player={player}/>)}
               </div>
@@ -705,6 +784,72 @@ export default function UserPanel() {
                 <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{favorites.map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i} player={player}/>)}</div>
               </>
             )}
+          </div>
+        )}
+
+        {/* ── PROFILE ── */}
+        {!loading && tab==="profile" && (
+          <div style={{ animation:"slideUp 0.3s ease" }}>
+            <h2 style={{ fontSize:22, fontWeight:700, marginBottom:20, color:C.text }}>Profile</h2>
+
+            <div style={{ display:"flex", alignItems:"center", gap:16, background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:20, marginBottom:24 }}>
+              <div style={{ width:56, height:56, borderRadius:"50%", background:C.accentDim, border:`1px solid ${C.accentBorder}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, fontWeight:700, color:C.accent, flexShrink:0 }}>
+                {(user?.name || "?").trim().charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                {nameEditing ? (
+                  <div style={{ display:"flex", gap:8 }}>
+                    <input autoFocus style={{ flex:1, padding:"8px 12px", borderRadius:8, border:`1px solid ${C.border}`, fontSize:15, fontFamily:"'Outfit',sans-serif", color:C.text, background:C.bg }}
+                      value={nameEditValue} onChange={e => setNameEditValue(e.target.value)}
+                      onKeyDown={e => { if (e.key==="Enter") saveEditName(); if (e.key==="Escape") setNameEditing(false); }}/>
+                    <button style={{ padding:"8px 14px", borderRadius:8, border:"none", background:C.accent, color:"#fff", fontWeight:700, cursor:"pointer", fontSize:13, fontFamily:"'Outfit',sans-serif" }} onClick={saveEditName}>Save</button>
+                  </div>
+                ) : (
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ fontSize:19, fontWeight:700, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{user?.name || "Anonymous"}</div>
+                    <button style={{ background:"none", border:"none", cursor:"pointer", padding:4, display:"flex", color:C.muted }} title="Edit name" onClick={startEditName}><FaPen size={13}/></button>
+                  </div>
+                )}
+                <div style={{ fontSize:12, color:C.sub, marginTop:4 }}>{favorites.length} favorite{favorites.length!==1?"s":""} · {playlists.length} playlist{playlists.length!==1?"s":""}</div>
+              </div>
+            </div>
+
+            {!isStandalone() && (
+              <button style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, width:"100%", padding:"13px", borderRadius:12, border:`1px solid ${C.accentBorder}`, background:C.accentDim, color:C.accent, fontWeight:700, fontSize:13, cursor:installEvent?"pointer":"default", fontFamily:"'Outfit',sans-serif", marginBottom:28, opacity:installEvent?1:0.6 }}
+                disabled={!installEvent} onClick={installApp}>
+                <FaDownload size={13}/> {installedFlag ? "App installed" : installEvent ? "Download App" : "Install not available in this browser"}
+              </button>
+            )}
+
+            <section style={{ marginBottom:32 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+                <h3 style={{ fontSize:15, fontWeight:700, color:C.text, display:"flex", alignItems:"center", gap:8 }}><FaHeart size={12} style={{ color:C.accent }}/> Favorites ({favorites.length})</h3>
+                {favorites.length>0 && <span style={{ fontSize:12, color:C.accent, cursor:"pointer" }} onClick={() => setTab("favs")}>View all →</span>}
+              </div>
+              {favorites.length===0
+                ? <p style={{ color:C.muted, fontSize:13, padding:"8px 0" }}>No favorites yet. Tap ♥ on any song.</p>
+                : <div style={{ display:"flex", flexDirection:"column", gap:2 }}>{favorites.slice(0,5).map((s,i) => <SongRow key={s._id} song={s} list={favorites} index={i} player={player}/>)}</div>}
+            </section>
+
+            <section>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+                <h3 style={{ fontSize:15, fontWeight:700, color:C.text, display:"flex", alignItems:"center", gap:8 }}><FaListUl size={12} style={{ color:C.accent }}/> Playlists ({playlists.length})</h3>
+                {playlists.length>0 && <span style={{ fontSize:12, color:C.accent, cursor:"pointer" }} onClick={() => setTab("playlists")}>View all →</span>}
+              </div>
+              {playlists.length===0 ? (
+                <p style={{ color:C.muted, fontSize:13, padding:"8px 0" }}>No playlists yet.</p>
+              ) : (
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))", gap:16 }} className="agrid">
+                  {playlists.map(pl => (
+                    <div key={pl.id} style={{ cursor:"pointer", borderRadius:12, overflow:"hidden", background:C.card, border:`1px solid ${C.border}`, padding:14 }} onClick={() => { setSelectedPlaylist(pl); setTab("playlists"); }}>
+                      <div style={{ width:"100%", aspectRatio:"1", borderRadius:8, background:C.surface, display:"flex", alignItems:"center", justifyContent:"center", marginBottom:10 }}><FaListUl size={22} color={C.accent}/></div>
+                      <div style={{ fontSize:13, fontWeight:600, color:C.text, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{pl.name}</div>
+                      <div style={{ fontSize:11, color:C.sub }}>{pl.songIds.length} song{pl.songIds.length!==1?"s":""}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </div>
