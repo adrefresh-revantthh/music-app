@@ -93,7 +93,6 @@ function NavbarFooter({ children }) {
         height:50, display:"flex", alignItems:"center", justifyContent:"space-between",
         padding:"0 24px", background:mode==="dark" ? "rgba(15,15,18,0.95)" : "rgba(255,255,255,0.9)", backdropFilter:"blur(16px)",
         borderBottom:`1px solid ${C.border}`,
-    
       }}>
         <NavLink to="/" style={{ display:"flex", alignItems:"center", gap:8, fontSize:22, fontWeight:700, color:C.text, letterSpacing:"0.01em" }}>
           <img src="/icon-192.png" alt="" width={28} height={28}/>
@@ -110,65 +109,19 @@ function NavbarFooter({ children }) {
           </button>
         </div>
 
-<div
-  className="ham-btn"
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  }}
->
-  <button
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 5,
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      padding: 8,
-    }}
-    onClick={() => setMenuOpen((m) => !m)}
-  >
-    <span
-      style={{
-        width: 22,
-        height: 2,
-        background: C.text,
-        borderRadius: 2,
-        display: "block",
-        transition: "all 0.25s",
-        transform: menuOpen
-          ? "rotate(45deg) translate(5px,5px)"
-          : "none",
-      }}
-    />
-    <span
-      style={{
-        width: 22,
-        height: 2,
-        background: C.text,
-        borderRadius: 2,
-        display: "block",
-        transition: "all 0.25s",
-        opacity: menuOpen ? 0 : 1,
-      }}
-    />
-    <span
-      style={{
-        width: 22,
-        height: 2,
-        background: C.text,
-        borderRadius: 2,
-        display: "block",
-        transition: "all 0.25s",
-        transform: menuOpen
-          ? "rotate(-45deg) translate(5px,-5px)"
-          : "none",
-      }}
-    />
-  </button>
-</div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }} className="ham-btn">
+          <button className="theme-toggle" onClick={toggleMode} title={mode==="dark" ? "Switch to light mode" : "Switch to dark mode"}>
+            {mode==="dark" ? <FaSun size={14}/> : <FaMoon size={14}/>}
+          </button>
+          <button style={{
+            display:"flex", flexDirection:"column", gap:5, background:"none",
+            border:"none", cursor:"pointer", padding:8,
+          }} onClick={() => setMenuOpen(m => !m)}>
+            <span style={{ width:22, height:2, background:C.text, borderRadius:2, display:"block", transition:"all 0.25s", transform:menuOpen?"rotate(45deg) translate(5px,5px)":"none" }}/>
+            <span style={{ width:22, height:2, background:C.text, borderRadius:2, display:"block", transition:"all 0.25s", opacity:menuOpen?0:1 }}/>
+            <span style={{ width:22, height:2, background:C.text, borderRadius:2, display:"block", transition:"all 0.25s", transform:menuOpen?"rotate(-45deg) translate(5px,-5px)":"none" }}/>
+          </button>
+        </div>
       </nav>
 
       {menuOpen && (
@@ -177,22 +130,8 @@ function NavbarFooter({ children }) {
           background:C.surface, padding:"8px 24px 20px",
           borderBottom:`1px solid ${C.border}`, animation:"fadeIn 0.2s ease",
         }}>
-       <NavLink
-  to="#"
-  onClick={(e) => {
-    e.preventDefault();
-    toggleMode();
-  }}
-  className="mobile-link"
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  }}
->
-  <span>{mode === "dark" ? "Light Mode" : "Dark Mode"}</span>
-  {mode === "dark" ? <FaSun size={16} /> : <FaMoon size={16} />}
-</NavLink>          <NavLink to="/admin" className={({ isActive }) => "mobile-link" + (isActive ? " active" : "")} onClick={() => setMenuOpen(false)}>Admin</NavLink>
+          <NavLink to="/" className={({ isActive }) => "mobile-link" + (isActive ? " active" : "")} onClick={() => setMenuOpen(false)}>Home</NavLink>
+          <NavLink to="/admin" className={({ isActive }) => "mobile-link" + (isActive ? " active" : "")} onClick={() => setMenuOpen(false)}>Admin</NavLink>
         </div>
       )}
 

@@ -1,0 +1,46 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="46%" r="65%">
+      <stop offset="0%" stop-color="#ff9d80" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#FF7F50" stop-opacity="0.20"/>
+      <stop offset="100%" stop-color="#0d0d10" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffab8f"/>
+      <stop offset="55%" stop-color="#FF7F50"/>
+      <stop offset="100%" stop-color="#e8623a"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="256" cy="256" r="248" fill="#111114" stroke="#000000" stroke-width="4"/>
+  <circle cx="256" cy="256" r="248" fill="url(#glow)"/>
+
+  <!-- stylized "S" ribbon -->
+  <path d="M 336 146
+           C 336 108, 296 84, 246 84
+           C 190 84, 150 112, 150 156
+           C 150 196, 182 214, 232 226
+           L 296 240
+           C 356 254, 390 280, 390 326
+           C 390 380, 344 414, 274 414
+           C 210 414, 166 386, 160 342"
+        fill="none" stroke="url(#sGrad)" stroke-width="46" stroke-linecap="round"/>
+
+  <!-- waveform ticks, upper right of the S -->
+  <g fill="#ff9d80" opacity="0.9">
+    <rect x="296" y="150" width="10" height="20" rx="5"/>
+    <rect x="313" y="140" width="10" height="40" rx="5"/>
+    <rect x="330" y="130" width="10" height="60" rx="5"/>
+    <rect x="347" y="145" width="10" height="30" rx="5"/>
+    <rect x="364" y="152" width="10" height="16" rx="5"/>
+  </g>
+
+  <!-- waveform ticks, lower left of the S -->
+  <g fill="#ff9d80" opacity="0.9">
+    <rect x="138" y="345" width="10" height="16" rx="5"/>
+    <rect x="155" y="338" width="10" height="30" rx="5"/>
+    <rect x="172" y="322" width="10" height="60" rx="5"/>
+    <rect x="189" y="336" width="10" height="34" rx="5"/>
+    <rect x="206" y="346" width="10" height="18" rx="5"/>
+  </g>
+</svg>
