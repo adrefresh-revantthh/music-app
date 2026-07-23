@@ -182,8 +182,12 @@ export default function UserPanel() {
   // choose (right after the name is entered) instead of whenever Chrome
   // feels like it.
   useEffect(() => {
-    const onBeforeInstall = (e) => { e.preventDefault(); setInstallEvent(e); };
-    const onInstalled = () => { setInstallEvent(null); setInstalledFlag(true); setShowInstallStep(false); };
+    // main.jsx starts listening before React even mounts and stashes the
+    // event here — pick it up if it already fired.
+    if (window.__loopzInstallPrompt) setInstallEvent(window.__loopzInstallPrompt);
+
+    const onBeforeInstall = (e) => { e.preventDefault(); window.__loopzInstallPrompt = e; setInstallEvent(e); };
+    const onInstalled = () => { window.__loopzInstallPrompt = null; setInstallEvent(null); setInstalledFlag(true); setShowInstallStep(false); };
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("appinstalled", onInstalled);
     return () => {
@@ -203,6 +207,7 @@ export default function UserPanel() {
       installEvent.prompt();
       await installEvent.userChoice;
     } catch {}
+    window.__loopzInstallPrompt = null;
     setInstallEvent(null);
     setShowInstallStep(false);
   };

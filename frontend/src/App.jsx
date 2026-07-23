@@ -102,8 +102,10 @@ function NavbarFooter({ children }) {
         <div className="desk-nav" style={{ display:"flex", alignItems:"center", gap:8 }}>
           <NavLink to="/" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>Home</NavLink>
           <NavLink to="/admin" className={({ isActive }) => "nav-link" + (isActive ? " active" : "")}>Admin</NavLink>
-          <button className="theme-toggle" onClick={toggleMode} title={mode==="dark" ? "Switch to light mode" : "Switch to dark mode"} style={{ marginLeft:8 }}>
-            {mode==="dark" ? <FaSun size={14}/> : <FaMoon size={14}/>}
+          <button className="theme-toggle" onClick={toggleMode} title={mode==="dark" ? "Switch to light mode" : "Switch to dark mode"}
+            style={{ marginLeft:8, width:"auto", padding:"0 12px", gap:7 }}>
+            {mode==="dark" ? <FaSun size={13}/> : <FaMoon size={13}/>}
+            <span style={{ fontSize:12, fontWeight:600 }}>{mode==="dark" ? "Light" : "Dark"}</span>
           </button>
         </div>
 
